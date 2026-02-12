@@ -1,4 +1,4 @@
-# thesis# THESIS: The Council
+# THESIS: The Council
 Codinome: THESIS
 
 ## 1) Norte do projeto
