@@ -1,0 +1,31 @@
+{
+  "name": "thesis-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "THESIS: The Council - Multi-agent VC analysis platform",
+  "scripts": {
+    "dev": "pnpm --filter \"@thesis/*\" --parallel dev",
+    "build": "pnpm --filter \"@thesis/*\" build",
+    "test": "pnpm --filter \"@thesis/*\" test",
+    "test:unit": "pnpm --filter \"@thesis/*\" test:unit",
+    "lint": "pnpm --filter \"@thesis/*\" lint",
+    "lint:fix": "pnpm --filter \"@thesis/*\" lint:fix",
+    "clean": "rm -rf node_modules apps/*/node_modules apps/*/dist packages/*/node_modules packages/*/dist",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.0",
+    "eslint": "^8.56.0",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0",
+    "tsx": "^4.7.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.0"
+}

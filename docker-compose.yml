@@ -1,0 +1,48 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/thesis-api/Dockerfile
+    container_name: thesis-api
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      - HOST=0.0.0.0
+    networks:
+      - thesis-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  gateway:
+    build:
+      context: .
+      dockerfile: apps/thesis-gateway/Dockerfile
+    container_name: thesis-gateway
+    networks:
+      - thesis-network
+    depends_on:
+      - api
+
+  cli:
+    build:
+      context: .
+      dockerfile: apps/thesis-cli/Dockerfile
+    container_name: thesis-cli
+    networks:
+      - thesis-network
+    depends_on:
+      - api
+      - gateway
+    stdin_open: true
+    tty: true
+    working_dir: /app
+    command: ["node", "apps/thesis-cli/dist/index.js"]
+
+networks:
+  thesis-network:
+    driver: bridge
