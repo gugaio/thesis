@@ -248,7 +248,7 @@ Score = (acertos × 10) + (opiniões × confiança_média × peso_perfil)
 ✅ API Endpoints: 18
 ✅ WebSocket Endpoint: 1
 ✅ CLI Commands: 12
-✅ Tabelas do Banco: 8
+✅ Tabelas do Banco: 10
 ✅ Perfis de Agente: 3
 ✅ Apps: 4 (api, cli, gateway, war-room)
 ```
@@ -313,6 +313,7 @@ thesis/
 7. **messages** - Mensagens entre agentes
 8. **votes** - Votos dos agentes (approve/reject/abstain)
 9. **agent_rankings** - Pontuação de autoridade por agente
+10. **events** - Ledger de eventos persistidos no banco
 
 ---
 
