@@ -1,5 +1,10 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import multipart from '@fastify/multipart';
+import { sessionRoutes } from './routes/sessions.js';
+import { documentRoutes } from './routes/documents.js';
+import { agentRoutes } from './routes/agents.js';
+import { opinionRoutes } from './routes/opinions.js';
 
 const fastify = Fastify({
   logger: true
@@ -8,6 +13,17 @@ const fastify = Fastify({
 fastify.register(cors, {
   origin: true
 });
+
+fastify.register(multipart, {
+  limits: {
+    fileSize: 10 * 1024 * 1024,
+  }
+});
+
+fastify.register(sessionRoutes);
+fastify.register(agentRoutes);
+fastify.register(documentRoutes);
+fastify.register(opinionRoutes);
 
 fastify.get('/health', async () => {
   return {

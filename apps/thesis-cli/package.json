@@ -20,7 +20,9 @@
   },
   "dependencies": {
     "@thesis/protocol": "workspace:*",
-    "commander": "^12.0.0"
+    "commander": "^12.0.0",
+    "axios": "^1.6.5",
+    "form-data": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
