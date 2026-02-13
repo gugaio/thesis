@@ -3,8 +3,10 @@ import type { AgentJoinedEvent, EventType } from '@thesis/protocol';
 import { randomUUID } from 'crypto';
 import { AgentRepository } from '../repositories/agent.repository.js';
 import { AgentProfileRepository } from '../repositories/agent-profile.repository.js';
+import { LedgerRepository } from '../repositories/ledger.repository.js';
 import { LedgerService } from '../services/ledger.service.js';
 import { getPool } from '../db/connection.js';
+import { publishEvent } from '../websocket/event-publisher.js';
 
 interface JoinSessionBody {
   profileRole: string;
@@ -15,7 +17,8 @@ export async function agentRoutes(fastify: FastifyInstance): Promise<void> {
   const pool = getPool();
   const profileRepo = new AgentProfileRepository(pool);
   const agentRepo = new AgentRepository(pool, profileRepo);
-  const ledgerService = new LedgerService();
+  const ledgerRepo = new LedgerRepository(pool);
+  const ledgerService = new LedgerService(ledgerRepo);
 
   fastify.post<{ Params: { id: string }; Body: JoinSessionBody }>(
     '/sessions/:id/agents',
@@ -61,6 +64,8 @@ export async function agentRoutes(fastify: FastifyInstance): Promise<void> {
         };
 
         await ledgerService.addEvent(sessionId, event);
+
+        publishEvent(sessionId, event);
 
         return reply.status(201).send({
           agentId: agent.id,

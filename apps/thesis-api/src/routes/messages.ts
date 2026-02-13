@@ -3,8 +3,10 @@ import type { MessageSentEvent, BudgetUpdatedEvent, EventType } from '@thesis/pr
 import { randomUUID } from 'crypto';
 import { MessageRepository } from '../repositories/message.repository.js';
 import { AgentRepository } from '../repositories/agent.repository.js';
+import { LedgerRepository } from '../repositories/ledger.repository.js';
 import { LedgerService } from '../services/ledger.service.js';
 import { getPool } from '../db/connection.js';
+import { publishEvent } from '../websocket/event-publisher.js';
 
 interface SendMessageBody {
   fromAgentId: string;
@@ -16,7 +18,8 @@ export async function messageRoutes(fastify: FastifyInstance): Promise<void> {
   const pool = getPool();
   const messageRepo = new MessageRepository(pool);
   const agentRepo = new AgentRepository(pool, messageRepo as any);
-  const ledgerService = new LedgerService();
+  const ledgerRepo = new LedgerRepository(pool);
+  const ledgerService = new LedgerService(ledgerRepo);
 
   const MESSAGE_COST = parseInt(process.env.MESSAGE_COST || '1', 10);
 
@@ -100,6 +103,8 @@ export async function messageRoutes(fastify: FastifyInstance): Promise<void> {
 
       await ledgerService.addEvent(sessionId, budgetEvent);
 
+      publishEvent(sessionId, budgetEvent);
+
       const messageEvent: MessageSentEvent = {
         id: randomUUID(),
         type: 'message.sent' as EventType.MESSAGE_SENT,
@@ -112,6 +117,8 @@ export async function messageRoutes(fastify: FastifyInstance): Promise<void> {
       };
 
       await ledgerService.addEvent(sessionId, messageEvent);
+
+      publishEvent(sessionId, messageEvent);
 
       return reply.status(201).send({
         messageId: message.id,

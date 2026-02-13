@@ -1,15 +1,18 @@
 import type { Event } from '@thesis/protocol';
+import { LedgerRepository } from '../repositories/ledger.repository.js';
 
 export class LedgerService {
-  private events: Map<string, Event[]> = new Map();
+  private ledgerRepo: LedgerRepository;
+
+  constructor(ledgerRepo: LedgerRepository) {
+    this.ledgerRepo = ledgerRepo;
+  }
 
   async addEvent(sessionId: string, event: Event): Promise<void> {
-    const sessionEvents = this.events.get(sessionId) || [];
-    sessionEvents.push(event);
-    this.events.set(sessionId, sessionEvents);
+    await this.ledgerRepo.addEvent(sessionId, event);
   }
 
   async getEvents(sessionId: string): Promise<Event[]> {
-    return this.events.get(sessionId) || [];
+    return this.ledgerRepo.getEvents(sessionId);
   }
 }

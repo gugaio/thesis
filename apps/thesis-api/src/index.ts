@@ -1,12 +1,25 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
+import websocket from '@fastify/websocket';
 import { sessionRoutes } from './routes/sessions.js';
 import { documentRoutes } from './routes/documents.js';
 import { agentRoutes } from './routes/agents.js';
 import { opinionRoutes } from './routes/opinions.js';
 import { messageRoutes } from './routes/messages.js';
 import { voteRoutes } from './routes/votes.js';
+import { createWebSocketHandler } from './websocket/websocket.handler.js';
+import { SessionRepository } from './repositories/session.repository.js';
+import { DocumentRepository } from './repositories/document.repository.js';
+import { AgentRepository } from './repositories/agent.repository.js';
+import { OpinionRepository } from './repositories/opinion.repository.js';
+import { VoteRepository } from './repositories/vote.repository.js';
+import { MessageRepository } from './repositories/message.repository.js';
+import { LedgerRepository } from './repositories/ledger.repository.js';
+import { LedgerService } from './services/ledger.service.js';
+import { getPool } from './db/connection.js';
+import { HypothesisRepository } from './repositories/hypothesis.repository.js';
+import { AgentProfileRepository } from './repositories/agent-profile.repository.js';
 
 const fastify = Fastify({
   logger: true
@@ -15,6 +28,8 @@ const fastify = Fastify({
 fastify.register(cors, {
   origin: true
 });
+
+fastify.register(websocket);
 
 fastify.register(multipart, {
   limits: {
@@ -28,6 +43,36 @@ fastify.register(documentRoutes);
 fastify.register(opinionRoutes);
 fastify.register(messageRoutes);
 fastify.register(voteRoutes);
+
+fastify.register(async function (fastify) {
+  const pool = getPool();
+  const hypothesisRepo = new HypothesisRepository(pool);
+  const sessionRepo = new SessionRepository(pool, hypothesisRepo);
+  const documentRepo = new DocumentRepository(pool);
+  const profileRepo = new AgentProfileRepository(pool);
+  const agentRepo = new AgentRepository(pool, profileRepo);
+  const opinionRepo = new OpinionRepository(pool);
+  const voteRepo = new VoteRepository(pool);
+  const messageRepo = new MessageRepository(pool);
+  const ledgerRepo = new LedgerRepository(pool);
+  const ledgerService = new LedgerService(ledgerRepo);
+
+  fastify.register(async function (fastify) {
+    fastify.get(
+      '/ws/sessions/:id',
+      { websocket: true },
+      createWebSocketHandler(
+        sessionRepo,
+        documentRepo,
+        agentRepo,
+        opinionRepo,
+        voteRepo,
+        messageRepo,
+        ledgerService
+      )
+    );
+  });
+});
 
 fastify.get('/health', async () => {
   return {

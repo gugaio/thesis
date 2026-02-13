@@ -4,8 +4,10 @@ import { randomUUID } from 'crypto';
 import { VoteRepository } from '../repositories/vote.repository.js';
 import { AgentRepository } from '../repositories/agent.repository.js';
 import { AgentProfileRepository } from '../repositories/agent-profile.repository.js';
+import { LedgerRepository } from '../repositories/ledger.repository.js';
 import { LedgerService } from '../services/ledger.service.js';
 import { getPool } from '../db/connection.js';
+import { publishEvent } from '../websocket/event-publisher.js';
 
 interface CastVoteBody {
   agentId: string;
@@ -18,7 +20,8 @@ export async function voteRoutes(fastify: FastifyInstance): Promise<void> {
   const voteRepo = new VoteRepository(pool);
   const profileRepo = new AgentProfileRepository(pool);
   const agentRepo = new AgentRepository(pool, profileRepo);
-  const ledgerService = new LedgerService();
+  const ledgerRepo = new LedgerRepository(pool);
+  const ledgerService = new LedgerService(ledgerRepo);
 
   fastify.post(
     '/sessions/:id/votes',
@@ -66,6 +69,8 @@ export async function voteRoutes(fastify: FastifyInstance): Promise<void> {
         };
 
         await ledgerService.addEvent(sessionId, event);
+
+        publishEvent(sessionId, event);
 
         return reply.status(201).send({
           voteId: vote.id,

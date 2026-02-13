@@ -99,6 +99,44 @@ export class SessionRepository {
     return session;
   }
 
+  async listAll(): Promise<Session[]> {
+    const query = `
+      SELECT
+        s.id,
+        s.status,
+        s.final_verdict,
+        s.closed_at,
+        s.hypothesis_id,
+        s.created_at,
+        s.updated_at,
+        h.statement,
+        h.description,
+        h.confidence
+      FROM sessions s
+      JOIN hypotheses h ON s.hypothesis_id = h.id
+      ORDER BY s.created_at DESC
+    `;
+
+    const result = await this.pool.query(query);
+
+    return result.rows.map((row) => ({
+      id: row.id,
+      status: row.status as SessionStatus,
+      finalVerdict: row.final_verdict as VerdictType | undefined,
+      closedAt: row.closed_at || undefined,
+      hypothesis: {
+        id: row.hypothesis_id,
+        statement: row.statement,
+        description: row.description,
+        confidence: row.confidence,
+      },
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      documents: [],
+      agents: [],
+    }));
+  }
+
   async close(input: CloseSessionInput): Promise<Session> {
     const { sessionId, finalVerdict, rationale } = input;
 

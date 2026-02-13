@@ -191,16 +191,66 @@ Score = (acertos × 10) + (opiniões × confiança_média × peso_perfil)
 
 ---
 
+### ✅ Fase 5: War Room (Final MVP)
+**Objetivo:** Dashboard read-only em tempo real.
+
+**Entregas:**
+- ✅ Dashboard Next.js na porta 4500
+- ✅ WebSocket para atualizações em tempo real
+- ✅ Timeline da sessão
+- ✅ Lista de agentes com status
+- ✅ Visualização de créditos
+- ✅ Votos em tempo real
+- ✅ Relatório completo integrado
+
+**API (WebSocket):**
+- ✅ `GET /ws/sessions/:id` - Conexão WebSocket
+- ✅ Broadcast de eventos em tempo real:
+  - `session.created` - Nova sessão criada
+  - `agent.joined` - Agente entra na sessão
+  - `opinion.posted` - Opinião publicada
+  - `message.sent` - Mensagem trocada
+  - `vote.cast` - Voto registrado
+  - `session.closed` - Sessão encerrada
+  - `budget.updated` - Créditos atualizados
+
+**Componentes:**
+- ✅ `SessionHeader` - Cabeçalho da sessão
+- ✅ `Timeline` - Timeline de eventos
+- ✅ `AgentsPanel` - Painel de agentes
+- ✅ `VotesPanel` - Painel de votos
+- ✅ `MessagesPanel` - Painel de mensagens
+- ✅ `ReportSection` - Seção de relatório
+
+**Hooks:**
+- ✅ `useWebSocket` - Hook para conexão WebSocket
+- ✅ `useSession` - Hook para carregar sessão
+
+**Páginas:**
+- ✅ `/` - Lista de sessões ativas
+- ✅ `/sessions/:id` - Dashboard da sessão
+
+**Docker:**
+- ✅ Serviço `war-room` na porta 4500
+- ✅ Configuração de ambiente para API e WebSocket
+
+**Status:** ✅ COMPLETA  
+**Testes:** 68 passed (API + CLI)
+
+---
+
 ## 📊 Estatísticas Globais
 
 ```
-✅ Total de Fases Completas: 4/4
+✅ Total de Fases Completas: 5/5
 ✅ Total de Testes: 68/68 passando
 ✅ Repositories Criados: 9
 ✅ API Endpoints: 18
+✅ WebSocket Endpoint: 1
 ✅ CLI Commands: 12
 ✅ Tabelas do Banco: 8
 ✅ Perfis de Agente: 3
+✅ Apps: 4 (api, cli, gateway, war-room)
 ```
 
 ---
@@ -210,11 +260,12 @@ Score = (acertos × 10) + (opiniões × confiança_média × peso_perfil)
 ```
 thesis/
 ├── apps/
-│   ├── thesis-api/          # API REST (Fastify)
+│   ├── thesis-api/          # API REST + WebSocket (Fastify)
 │   │   ├── src/
 │   │   │   ├── routes/      # API routes (sessions, agents, documents, opinions, messages, votes)
 │   │   │   ├── repositories/ # Data access layer
 │   │   │   ├── services/    # Business logic
+│   │   │   ├── websocket/   # WebSocket handler, broadcast, publisher
 │   │   │   ├── db/         # Database connection & schema
 │   │   │   └── index.ts    # Server entry point
 │   │   └── package.json
@@ -224,7 +275,15 @@ thesis/
 │   │   │   ├── index.ts     # CLI commands
 │   │   │   └── *.test.ts   # Testes de fase
 │   │   └── package.json
-│   └── thesis-gateway/      # Gateway worker
+│   ├── thesis-gateway/      # Gateway worker
+│   │   └── package.json
+│   └── thesis-war-room/     # Dashboard Next.js
+│       ├── src/
+│       │   ├── app/         # App Router (páginas)
+│       │   ├── components/  # Componentes React
+│       │   ├── hooks/       # React hooks
+│       │   ├── lib/         # Utilitários
+│       │   └── types/       # Tipos TypeScript
 │       └── package.json
 ├── packages/
 │   └── protocol/           # Tipos compartilhados (TypeScript)
@@ -266,6 +325,7 @@ thesis/
 | Fase 2 | 18 | ✅ PASS |
 | Fase 3 | 16 | ✅ PASS |
 | Fase 4 | 20 | ✅ PASS |
+| Fase 5 | 0 | ✅ PASS (manual) |
 | **TOTAL** | **68** | **✅ PASS** |
 
 ---
@@ -310,11 +370,32 @@ cast-vote --session <id> --agent <id> --verdict <approve|reject|abstain> --ratio
 
 ---
 
+### War Room (Dashboard)
+
+```bash
+# Desenvolvimento
+cd apps/thesis-war-room
+pnpm dev
+
+# Build
+pnpm build
+
+# Produção
+pnpm start
+```
+
+Acesse o dashboard em: `http://localhost:4500`
+
+---
+
 ## 📦 API Endpoints
+
+### REST API
 
 | Método | Endpoint | Descrição |
 |--------|-----------|-----------|
 | POST | /sessions | Criar sessão |
+| GET | /sessions | Listar sessões |
 | GET | /sessions/:id | Obter sessão |
 | POST | /sessions/:id/close | Encerrar sessão |
 | GET | /sessions/:id/report | Gerar relatório |
@@ -333,23 +414,21 @@ cast-vote --session <id> --agent <id> --verdict <approve|reject|abstain> --ratio
 | POST | /agents/:id/messages/read-all | Marcar todas lidas |
 | GET | /health | Health check |
 
----
+### WebSocket
 
-## 🎯 Próxima Fase
+| Endpoint | Descrição |
+|----------|-----------|
+| ws://localhost:4000/ws/sessions/:id | Conexão em tempo real |
 
-### 📋 Fase 5: War Room (Final MVP)
-**Objetivo:** Dashboard read-only em tempo real.
-
-**Entregas Planejadas:**
-- 📊 Dashboard Next.js
-- 🔄 WebSocket para atualizações em tempo real
-- 📈 Timeline da sessão
-- 🤖 Lista de agentes com status
-- 💰 Visualização de créditos
-- 🗳️ Votos em tempo real
-- 📄 Relatório completo integrado
-
-**Status:** ⏳ PENDENTE
+**Eventos Broadcast:**
+- `session.created` - Nova sessão criada
+- `doc.uploaded` - Documento anexado
+- `agent.joined` - Agente entrou na sessão
+- `opinion.posted` - Opinião publicada
+- `message.sent` - Mensagem enviada
+- `vote.cast` - Voto registrado
+- `session.closed` - Sessão encerrada
+- `budget.updated` - Créditos atualizados
 
 ---
 
@@ -365,8 +444,35 @@ docker-compose ps
 
 # Ver logs
 docker-compose logs -f api
+docker-compose logs -f war-room
 docker-compose logs -f gateway
 ```
+
+### Serviços
+
+| Serviço | Porta | Descrição |
+|---------|-------|-----------|
+| api | 4000 | REST API + WebSocket |
+| war-room | 4500 | Dashboard Next.js |
+| postgres | 5432 | Banco de dados |
+| gateway | - | Worker de orquestração |
+| cli | - | Interface CLI |
+
+---
+
+## 🎯 Próxima Fase
+
+### 📋 Fase 6: Hardening
+**Objetivo:** Confiabilidade e segurança operacional.
+
+**Entregas Planejadas:**
+- 🔄 Retries automáticos em falhas de API
+- 📊 Observabilidade (metrics, logs, traces)
+- 🚫 Limites de execução (timeout, rate limiting)
+- 🔒 Auditoria aprimorada
+- 🧪 Testes de resiliência
+
+**Status:** ⏳ PENDENTE
 
 ### Testes
 ```bash
@@ -411,12 +517,12 @@ pnpm --filter @thesis/protocol build
 | Fase 2: Join + Opinion | ✅ COMPLETA | 2026-02-12 |
 | Fase 3: Budget + Diálogo | ✅ COMPLETA | 2026-02-13 |
 | Fase 4: Veredito + Ranking | ✅ COMPLETA | 2026-02-13 |
-| Fase 5: War Room | ⏳ PENDENTE | --- |
+| Fase 5: War Room | ✅ COMPLETA | 2026-02-13 |
 | Fase 6: Hardening | ⏳ PENDENTE | --- |
 | Fase 7: Integrações Externas | ⏳ PENDENTE | --- |
 
 ---
 
 **Última Atualização:** 13 de Fevereiro de 2026  
-**Versão:** 0.1.0  
-**Status:** ✅ Fases 0-4 completas, prontas para Fase 5
+**Versão:** 0.2.0  
+**Status:** ✅ Fases 0-5 completas, MVP final entregue

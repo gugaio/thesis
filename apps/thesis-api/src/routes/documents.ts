@@ -2,13 +2,16 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { DocUploadedEvent, EventType } from '@thesis/protocol';
 import { randomUUID } from 'crypto';
 import { DocumentRepository } from '../repositories/document.repository.js';
+import { LedgerRepository } from '../repositories/ledger.repository.js';
 import { LedgerService } from '../services/ledger.service.js';
 import { getPool } from '../db/connection.js';
+import { publishEvent } from '../websocket/event-publisher.js';
 
 export async function documentRoutes(fastify: FastifyInstance): Promise<void> {
   const pool = getPool();
   const documentRepo = new DocumentRepository(pool);
-  const ledgerService = new LedgerService();
+  const ledgerRepo = new LedgerRepository(pool);
+  const ledgerService = new LedgerService(ledgerRepo);
 
   fastify.post(
     '/sessions/:id/documents',
@@ -48,6 +51,8 @@ export async function documentRoutes(fastify: FastifyInstance): Promise<void> {
       };
 
       await ledgerService.addEvent(id, event);
+
+      publishEvent(id, event);
 
       return reply.status(201).send({
         documentId: document.id,

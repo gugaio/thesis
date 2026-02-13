@@ -10,7 +10,8 @@ COPY tsconfig.base.json ./tsconfig.base.json
 COPY apps/thesis-api ./apps/thesis-api
 
 RUN npm install -g pnpm@8.15.0 && \
-    pnpm install --no-frozen-lockfile
+    pnpm install --no-frozen-lockfile && \
+    pnpm --filter @thesis/api build
 
 ENV PORT=4000
 ENV HOST=0.0.0.0

@@ -99,6 +99,19 @@ CREATE TABLE IF NOT EXISTS agent_rankings (
   UNIQUE(agent_id)
 );
 
+-- Events table (ledger of all events)
+CREATE TABLE IF NOT EXISTS events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  event_type VARCHAR(50) NOT NULL,
+  event_data JSONB NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id);
+CREATE INDEX IF NOT EXISTS idx_events_type ON events(event_type);
+CREATE INDEX IF NOT EXISTS idx_events_created_at ON events(created_at);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_sessions_hypothesis ON sessions(hypothesis_id);
 CREATE INDEX IF NOT EXISTS idx_documents_session ON documents(session_id);

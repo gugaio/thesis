@@ -9,8 +9,10 @@ import { AgentProfileRepository } from '../repositories/agent-profile.repository
 import { VoteRepository } from '../repositories/vote.repository.js';
 import { OpinionRepository } from '../repositories/opinion.repository.js';
 import { AgentRankingRepository } from '../repositories/agent-ranking.repository.js';
+import { LedgerRepository } from '../repositories/ledger.repository.js';
 import { LedgerService } from '../services/ledger.service.js';
 import { getPool } from '../db/connection.js';
+import { publishEvent } from '../websocket/event-publisher.js';
 
 interface InitSessionBody {
   hypothesisStatement: string;
@@ -27,12 +29,13 @@ export async function sessionRoutes(fastify: FastifyInstance): Promise<void> {
   const hypothesisRepo = new HypothesisRepository(pool);
   const sessionRepo = new SessionRepository(pool, hypothesisRepo);
   const documentRepo = new DocumentRepository(pool);
-  const ledgerService = new LedgerService();
   const profileRepo = new AgentProfileRepository(pool);
   const agentRepo = new AgentRepository(pool, profileRepo);
   const voteRepo = new VoteRepository(pool);
   const opinionRepo = new OpinionRepository(pool);
   const rankingRepo = new AgentRankingRepository(pool);
+  const ledgerRepo = new LedgerRepository(pool);
+  const ledgerService = new LedgerService(ledgerRepo);
 
   fastify.post('/sessions', async (request: FastifyRequest<{ Body: InitSessionBody }>, reply) => {
     const { hypothesisStatement, hypothesisDescription } = request.body;
@@ -59,11 +62,18 @@ export async function sessionRoutes(fastify: FastifyInstance): Promise<void> {
 
     await ledgerService.addEvent(session.id, event);
 
+    publishEvent(session.id, event);
+
     return reply.status(201).send({
       sessionId: session.id,
       hypothesisId: session.hypothesis.id,
       status: session.status,
     });
+  });
+
+  fastify.get('/sessions', async (request, reply) => {
+    const sessions = await sessionRepo.listAll();
+    return reply.send(sessions);
   });
 
     fastify.get('/sessions/:id', async (request: FastifyRequest<{ Params: { id: string } }>, reply) => {
@@ -121,6 +131,8 @@ export async function sessionRoutes(fastify: FastifyInstance): Promise<void> {
         };
 
         await ledgerService.addEvent(sessionId, event);
+
+        publishEvent(sessionId, event);
 
         return reply.send({
           sessionId: session.id,
