@@ -6,6 +6,7 @@ import { documentRoutes } from './routes/documents.js';
 import { agentRoutes } from './routes/agents.js';
 import { opinionRoutes } from './routes/opinions.js';
 import { messageRoutes } from './routes/messages.js';
+import { voteRoutes } from './routes/votes.js';
 
 const fastify = Fastify({
   logger: true
@@ -26,6 +27,7 @@ fastify.register(agentRoutes);
 fastify.register(documentRoutes);
 fastify.register(opinionRoutes);
 fastify.register(messageRoutes);
+fastify.register(voteRoutes);
 
 fastify.get('/health', async () => {
   return {

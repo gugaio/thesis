@@ -1,5 +1,5 @@
 import axios, { type AxiosInstance, type AxiosError } from 'axios';
-import type { Session, Document, Event, Agent, OpinionEntry } from '@thesis/protocol';
+import type { Session, Document, Event, Agent, OpinionEntry, VerdictType } from '@thesis/protocol';
 
 export class ApiClient {
   private client: AxiosInstance;
@@ -204,6 +204,69 @@ export class ApiClient {
   async markAllMessagesAsRead(agentId: string): Promise<{ markedAsRead: number }> {
     try {
       const response = await this.client.post(`/agents/${agentId}/messages/read-all`);
+      return response.data;
+    } catch (error) {
+      const err = error as AxiosError<{ error: string }>;
+      throw new Error(err.response?.data?.error || err.message);
+    }
+  }
+
+  async castVote(
+    sessionId: string,
+    agentId: string,
+    verdict: VerdictType,
+    rationale: string
+  ): Promise<{ voteId: string; agentId: string; verdict: VerdictType; rationale: string; votedAt: string }> {
+    try {
+      const response = await this.client.post(`/sessions/${sessionId}/votes`, {
+        agentId,
+        verdict,
+        rationale,
+      });
+      return response.data;
+    } catch (error) {
+      const err = error as AxiosError<{ error: string }>;
+      throw new Error(err.response?.data?.error || err.message);
+    }
+  }
+
+  async listVotes(sessionId: string): Promise<Array<{
+    id: string;
+    sessionId: string;
+    agentId: string;
+    verdict: VerdictType;
+    rationale: string;
+    votedAt: string;
+  }>> {
+    try {
+      const response = await this.client.get(`/sessions/${sessionId}/votes`);
+      return response.data;
+    } catch (error) {
+      const err = error as AxiosError<{ error: string }>;
+      throw new Error(err.response?.data?.error || err.message);
+    }
+  }
+
+  async closeSession(
+    sessionId: string,
+    verdict: VerdictType,
+    rationale?: string
+  ): Promise<{ sessionId: string; status: string; finalVerdict: VerdictType; closedAt: string }> {
+    try {
+      const response = await this.client.post(`/sessions/${sessionId}/close`, {
+        verdict,
+        rationale,
+      });
+      return response.data;
+    } catch (error) {
+      const err = error as AxiosError<{ error: string }>;
+      throw new Error(err.response?.data?.error || err.message);
+    }
+  }
+
+  async getReport(sessionId: string): Promise<any> {
+    try {
+      const response = await this.client.get(`/sessions/${sessionId}/report`);
       return response.data;
     } catch (error) {
       const err = error as AxiosError<{ error: string }>;

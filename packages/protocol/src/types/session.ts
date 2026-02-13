@@ -9,6 +9,8 @@ export interface Session {
   id: string;
   status: SessionStatus;
   hypothesis: Hypothesis;
+  finalVerdict?: VerdictType;
+  closedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
   documents: Document[];
@@ -52,4 +54,30 @@ export interface InteractionBudget {
   credits: number;
   maxCredits: number;
   lastRefill: Date;
+}
+
+export enum VerdictType {
+  APPROVE = 'approve',
+  REJECT = 'reject',
+  ABSTAIN = 'abstain'
+}
+
+export interface Vote {
+  id: string;
+  sessionId: string;
+  agentId: string;
+  verdict: VerdictType;
+  rationale: string;
+  votedAt: Date;
+}
+
+export interface AgentRanking {
+  id: string;
+  agentId: string;
+  score: number;
+  totalVotes: number;
+  correctVotes: number;
+  totalOpinions: number;
+  avgConfidence: number;
+  lastUpdated: Date;
 }

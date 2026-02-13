@@ -389,4 +389,133 @@ program
     }
   });
 
-program.parse();
+program
+  .command('cast-vote')
+  .description('Cast a vote on a session')
+  .option('--session <id>', 'Session ID')
+  .option('--agent <id>', 'Agent ID')
+  .option('--verdict <approve|reject|abstain>', 'Verdict')
+  .option('--rationale <text>', 'Rationale for the vote')
+  .action(async (options) => {
+    try {
+      if (!options.session) {
+        console.error('Error: --session is required');
+        process.exit(1);
+      }
+
+      if (!options.agent) {
+        console.error('Error: --agent is required');
+        process.exit(1);
+      }
+
+      if (!options.verdict) {
+        console.error('Error: --verdict is required');
+        console.error('Available verdicts: approve, reject, abstain');
+        process.exit(1);
+      }
+
+      if (!['approve', 'reject', 'abstain'].includes(options.verdict)) {
+        console.error(`Error: Invalid verdict "${options.verdict}"`);
+        console.error('Available verdicts: approve, reject, abstain');
+        process.exit(1);
+      }
+
+      if (!options.rationale) {
+        console.error('Error: --rationale is required');
+        process.exit(1);
+      }
+
+      const client = new ApiClient(process.env.API_URL);
+      const result = await client.castVote(
+        options.session,
+        options.agent,
+        options.verdict,
+        options.rationale
+      );
+
+      console.log('✅ Vote cast successfully!');
+      console.log(`Vote ID: ${result.voteId}`);
+      console.log(`Agent ID: ${result.agentId}`);
+      console.log(`Verdict: ${result.verdict}`);
+      console.log(`Rationale: ${result.rationale}`);
+      console.log(`Voted At: ${result.votedAt}`);
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('close-session')
+  .description('Close a session with final verdict')
+  .option('--session <id>', 'Session ID')
+  .option('--verdict <approve|reject>', 'Final verdict')
+  .option('--rationale <text>', 'Rationale for the verdict')
+  .action(async (options) => {
+    try {
+      if (!options.session) {
+        console.error('Error: --session is required');
+        process.exit(1);
+      }
+
+      if (!options.verdict) {
+        console.error('Error: --verdict is required');
+        console.error('Available verdicts: approve, reject');
+        process.exit(1);
+      }
+
+      if (!['approve', 'reject'].includes(options.verdict)) {
+        console.error(`Error: Invalid verdict "${options.verdict}"`);
+        console.error('Available verdicts: approve, reject');
+        process.exit(1);
+      }
+
+      const client = new ApiClient(process.env.API_URL);
+      const result = await client.closeSession(options.session, options.verdict, options.rationale);
+
+      console.log('✅ Session closed successfully!');
+      console.log(`Session ID: ${result.sessionId}`);
+      console.log(`Status: ${result.status}`);
+      console.log(`Final Verdict: ${result.finalVerdict}`);
+      console.log(`Closed At: ${result.closedAt}`);
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('generate-report')
+  .description('Generate and save session report')
+  .option('--session <id>', 'Session ID')
+  .option('--output <path>', 'Output file path (JSON)', 'report.json')
+  .action(async (options) => {
+    try {
+      if (!options.session) {
+        console.error('Error: --session is required');
+        process.exit(1);
+      }
+
+      const client = new ApiClient(process.env.API_URL);
+      const report = await client.getReport(options.session);
+
+      const fs = (await import('fs')).default;
+      fs.writeFileSync(options.output, JSON.stringify(report, null, 2));
+
+      console.log('✅ Report generated successfully!');
+      console.log(`Output: ${options.output}`);
+      console.log('');
+      console.log('Report Summary:');
+      console.log(`- Session ID: ${report.session.id}`);
+      console.log(`- Status: ${report.session.status}`);
+      console.log(`- Final Verdict: ${report.session.finalVerdict || 'Not closed'}`);
+      console.log(`- Agents: ${report.agents.length}`);
+      console.log(`- Votes: ${report.votes.length} (${report.voteCounts.approve} approve, ${report.voteCounts.reject} reject, ${report.voteCounts.abstain} abstain)`);
+      console.log(`- Opinions: ${report.opinions.length}`);
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+  program.parse();

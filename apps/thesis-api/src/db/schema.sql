@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   status VARCHAR(50) NOT NULL DEFAULT 'created',
   hypothesis_id UUID NOT NULL REFERENCES hypotheses(id) ON DELETE CASCADE,
+  final_verdict VARCHAR(20),
+  closed_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
@@ -73,6 +75,30 @@ CREATE TABLE IF NOT EXISTS messages (
   read_at TIMESTAMP
 );
 
+-- Votes table (agent votes on session verdict)
+CREATE TABLE IF NOT EXISTS votes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  verdict VARCHAR(20) NOT NULL CHECK (verdict IN ('approve', 'reject', 'abstain')),
+  rationale TEXT NOT NULL,
+  voted_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(session_id, agent_id)
+);
+
+-- Agent Rankings table (authority scores)
+CREATE TABLE IF NOT EXISTS agent_rankings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  score FLOAT NOT NULL DEFAULT 0,
+  total_votes INT NOT NULL DEFAULT 0,
+  correct_votes INT NOT NULL DEFAULT 0,
+  total_opinions INT NOT NULL DEFAULT 0,
+  avg_confidence FLOAT DEFAULT 0,
+  last_updated TIMESTAMP DEFAULT NOW(),
+  UNIQUE(agent_id)
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_sessions_hypothesis ON sessions(hypothesis_id);
 CREATE INDEX IF NOT EXISTS idx_documents_session ON documents(session_id);
@@ -82,6 +108,9 @@ CREATE INDEX IF NOT EXISTS idx_opinions_session ON opinions(session_id);
 CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
 CREATE INDEX IF NOT EXISTS idx_messages_to_agent ON messages(to_agent_id);
 CREATE INDEX IF NOT EXISTS idx_messages_unread ON messages(to_agent_id, read_at) WHERE read_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_votes_session ON votes(session_id);
+CREATE INDEX IF NOT EXISTS idx_votes_agent ON votes(agent_id);
+CREATE INDEX IF NOT EXISTS idx_agent_rankings_score ON agent_rankings(score DESC);
 
 -- Insert predefined agent profiles
 INSERT INTO agent_profiles (id, name, role, description, weight, soul)
