@@ -233,10 +233,10 @@ program
         console.log('No agents in session yet.');
       } else {
         agents.forEach((agent, idx) => {
+          const joinedAt = agent.joinedAt instanceof Date ? agent.joinedAt : new Date(agent.joinedAt);
           console.log(`${idx + 1}. ${agent.profile.name} (${agent.profile.role})`);
           console.log(`   ID: ${agent.id}`);
           console.log(`   Budget: ${agent.budget.credits}/${agent.budget.maxCredits} credits`);
-          const joinedAt = agent.joinedAt instanceof Date ? agent.joinedAt : new Date(agent.joinedAt);
           console.log(`   Joined: ${joinedAt.toISOString()}`);
         });
       }
@@ -250,9 +250,10 @@ program
         opinions.forEach((opinion, idx) => {
           const agent = agents.find((a) => a.id === opinion.agentId);
           const agentName = agent ? agent.profile.name : 'Unknown';
+          const timestamp = opinion.timestamp instanceof Date ? opinion.timestamp.toISOString() : String(opinion.timestamp);
           console.log(`${idx + 1}. ${agentName} (confidence: ${opinion.confidence})`);
           console.log(`   ${opinion.content}`);
-          console.log(`   At: ${opinion.timestamp instanceof Date ? opinion.timestamp.toISOString() : String(opinion.timestamp)}`);
+          console.log(`   At: ${timestamp}`);
         });
       }
 
@@ -269,6 +270,121 @@ program
       }
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('ask')
+  .description('Send a message to another agent')
+  .option('--session <id>', 'Session ID')
+  .option('--from <agent-id>', 'Sender agent ID')
+  .option('--to <agent-id>', 'Recipient agent ID')
+  .option('--content <text>', 'Message content')
+  .action(async (options) => {
+    try {
+      if (!options.session) {
+        console.error('Error: --session is required');
+        process.exit(1);
+      }
+
+      if (!options.from) {
+        console.error('Error: --from is required');
+        process.exit(1);
+      }
+
+      if (!options.to) {
+        console.error('Error: --to is required');
+        process.exit(1);
+      }
+
+      if (!options.content) {
+        console.error('Error: --content is required');
+        process.exit(1);
+      }
+
+      const client = new ApiClient(process.env.API_URL);
+      const result = await client.sendMessage(
+        options.session,
+        options.from,
+        options.to,
+        options.content
+      );
+
+      console.log('✅ Message sent successfully!');
+      console.log(`Message ID: ${result.messageId}`);
+      console.log(`Remaining credits: ${result.remainingCredits}`);
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('listen')
+  .description('Listen for new messages (polling)')
+  .option('--session <id>', 'Session ID')
+  .option('--agent <agent-id>', 'Agent ID to listen for')
+  .option('--interval <seconds>', 'Polling interval in seconds', '5')
+  .action(async (options) => {
+    try {
+      if (!options.session) {
+        console.error('Error: --session is required');
+        process.exit(1);
+      }
+
+      if (!options.agent) {
+        console.error('Error: --agent is required');
+        process.exit(1);
+      }
+
+      const interval = parseInt(options.interval, 10);
+      if (isNaN(interval) || interval < 1) {
+        console.error('Error: --interval must be a positive number');
+        process.exit(1);
+      }
+
+      const client = new ApiClient(process.env.API_URL);
+
+      console.log(`👂 Listening for messages to agent ${options.agent}...`);
+      console.log(`Polling every ${interval} seconds. Press Ctrl+C to stop.`);
+      console.log('');
+
+      const markAsRead = async (messages: Array<{ id: string }>) => {
+        if (messages.length > 0) {
+          const messageIds = messages.map((m) => m.id);
+          await client.markMessagesAsRead(options.agent!, messageIds);
+        }
+      };
+
+      while (true) {
+        const result = await client.listMessages(options.session, options.agent!, true);
+
+        if (result.messages.length === 0) {
+          process.stdout.write('.');
+        } else {
+          process.stdout.write('\n');
+          console.log(`📨 ${result.messages.length} new message(s):`);
+          console.log('----------------');
+          result.messages.forEach((msg, idx) => {
+            const sentAt = new Date(msg.sentAt);
+            console.log(`${idx + 1}. From: ${msg.fromAgentId}`);
+            console.log(`   ${msg.content}`);
+            console.log(`   At: ${sentAt.toLocaleString()}`);
+          });
+          console.log('');
+
+          await markAsRead(result.messages);
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, interval * 1000));
+      }
+    } catch (error) {
+      if ((error as any).code === 'ECONNREFUSED') {
+        console.error('Error: Could not connect to API. Is it running?');
+      } else {
+        console.error('Error:', error instanceof Error ? error.message : error);
+      }
       process.exit(1);
     }
   });

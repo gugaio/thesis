@@ -145,4 +145,69 @@ export class ApiClient {
       throw new Error(err.response?.data?.error || err.message);
     }
   }
+
+  async sendMessage(
+    sessionId: string,
+    fromAgentId: string,
+    toAgentId: string,
+    content: string
+  ): Promise<{ messageId: string; remainingCredits: number }> {
+    try {
+      const response = await this.client.post(`/sessions/${sessionId}/messages`, {
+        fromAgentId,
+        toAgentId,
+        content,
+      });
+      return response.data;
+    } catch (error) {
+      const err = error as AxiosError<{ error: string }>;
+      throw new Error(err.response?.data?.error || err.message);
+    }
+  }
+
+  async listMessages(sessionId: string, agentId?: string, unreadOnly?: boolean): Promise<{
+    messages: Array<{
+      id: string;
+      fromAgentId: string;
+      toAgentId: string;
+      content: string;
+      sentAt: string;
+      readAt: string | null;
+    }>;
+  }> {
+    try {
+      const params: string[] = [];
+      if (agentId) params.push(`agentId=${agentId}`);
+      if (unreadOnly) params.push(`unreadOnly=true`);
+
+      const url = `/sessions/${sessionId}/messages${params.length ? '?' + params.join('&') : ''}`;
+      const response = await this.client.get(url);
+      return response.data;
+    } catch (error) {
+      const err = error as AxiosError<{ error: string }>;
+      throw new Error(err.response?.data?.error || err.message);
+    }
+  }
+
+  async markMessagesAsRead(agentId: string, messageIds: string[]): Promise<{ markedAsRead: number }> {
+    try {
+      const response = await this.client.post(`/agents/${agentId}/messages/read`, {
+        messageIds,
+      });
+      return response.data;
+    } catch (error) {
+      const err = error as AxiosError<{ error: string }>;
+      throw new Error(err.response?.data?.error || err.message);
+    }
+  }
+
+  async markAllMessagesAsRead(agentId: string): Promise<{ markedAsRead: number }> {
+    try {
+      const response = await this.client.post(`/agents/${agentId}/messages/read-all`);
+      return response.data;
+    } catch (error) {
+      const err = error as AxiosError<{ error: string }>;
+      throw new Error(err.response?.data?.error || err.message);
+    }
+  }
 }

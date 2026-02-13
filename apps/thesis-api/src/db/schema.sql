@@ -62,12 +62,26 @@ CREATE TABLE IF NOT EXISTS opinions (
   posted_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Messages table (agent communication)
+CREATE TABLE IF NOT EXISTS messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  from_agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  to_agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  sent_at TIMESTAMP DEFAULT NOW(),
+  read_at TIMESTAMP
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_sessions_hypothesis ON sessions(hypothesis_id);
 CREATE INDEX IF NOT EXISTS idx_documents_session ON documents(session_id);
 CREATE INDEX IF NOT EXISTS idx_documents_hash ON documents(content_hash);
 CREATE INDEX IF NOT EXISTS idx_agents_session ON agents(session_id);
 CREATE INDEX IF NOT EXISTS idx_opinions_session ON opinions(session_id);
+CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
+CREATE INDEX IF NOT EXISTS idx_messages_to_agent ON messages(to_agent_id);
+CREATE INDEX IF NOT EXISTS idx_messages_unread ON messages(to_agent_id, read_at) WHERE read_at IS NULL;
 
 -- Insert predefined agent profiles
 INSERT INTO agent_profiles (id, name, role, description, weight, soul)

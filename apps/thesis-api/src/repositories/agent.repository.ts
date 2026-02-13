@@ -66,7 +66,7 @@ export class AgentRepository {
 
   async findBySessionId(sessionId: string): Promise<Agent[]> {
     const query = `
-      SELECT 
+      SELECT
         a.id,
         a.joined_at,
         a.is_active,
@@ -107,9 +107,9 @@ export class AgentRepository {
     }));
   }
 
-  async findById(id: string): Promise<Agent | null> {
+  async findBySessionIdAndAgentId(sessionId: string, agentId: string): Promise<Agent | null> {
     const query = `
-      SELECT 
+      SELECT
         a.id,
         a.joined_at,
         a.is_active,
@@ -124,10 +124,10 @@ export class AgentRepository {
         p.soul as profile_soul
       FROM agents a
       JOIN agent_profiles p ON a.profile_id = p.id
-      WHERE a.id = $1
+      WHERE a.session_id = $1 AND a.id = $2
     `;
 
-    const result = await this.pool.query(query, [id]);
+    const result = await this.pool.query(query, [sessionId, agentId]);
 
     if (result.rows.length === 0) {
       return null;
@@ -135,7 +135,7 @@ export class AgentRepository {
 
     const row = result.rows[0];
 
-    const agent: Agent = {
+    return {
       id: row.id,
       profile: {
         id: row.profile_id,
@@ -153,7 +153,103 @@ export class AgentRepository {
         lastRefill: new Date(row.budget_last_refill),
       },
     };
+  }
 
-    return agent;
+  async findById(id: string): Promise<Agent | null> {
+    const query = `
+      SELECT 
+        a.id,
+        a.joined_at,
+        a.is_active,
+        a.budget_credits,
+        a.budget_max_credits,
+        a.budget_last_refill,
+        profile.id as profile_id,
+        profile.name as profile_name,
+        profile.role as profile_role,
+        profile.description as profile_description,
+        profile.weight as profile_weight,
+        profile.soul as profile_soul
+      FROM agents a
+      JOIN agent_profiles profile ON a.profile_id = profile.id
+      WHERE a.id = $1
+    `;
+
+    const result = await this.pool.query(query, [id]);
+
+    if (result.rows.length === 0) {
+      return null;
+    }
+
+    const row = result.rows[0];
+
+    return {
+      id: row.id,
+      profile: {
+        id: row.profile_id,
+        name: row.profile_name,
+        role: row.profile_role,
+        description: row.profile_description,
+        weight: row.profile_weight,
+        soul: row.profile_soul,
+      },
+      joinedAt: new Date(row.joined_at),
+      isActive: row.is_active,
+      budget: {
+        credits: row.budget_credits,
+        maxCredits: row.budget_max_credits,
+        lastRefill: new Date(row.budget_last_refill),
+      },
+    };
+  }
+
+  async decrementBudget(agentId: string, amount: number): Promise<Agent> {
+    const updateQuery = `
+      UPDATE agents
+      SET budget_credits = budget_credits - $1
+      WHERE id = $2
+      RETURNING id, budget_credits, budget_max_credits, budget_last_refill, joined_at, is_active, profile_id
+    `;
+
+    const result = await this.pool.query(updateQuery, [amount, agentId]);
+
+    if (result.rows.length === 0) {
+      throw new Error(`Agent "${agentId}" not found`);
+    }
+
+    const row = result.rows[0];
+
+    const profileQuery = `
+      SELECT id, name, role, description, weight, soul
+      FROM agent_profiles
+      WHERE id = $1
+    `;
+
+    const profileResult = await this.pool.query(profileQuery, [row.profile_id]);
+
+    if (profileResult.rows.length === 0) {
+      throw new Error(`Profile "${row.profile_id}" not found`);
+    }
+
+    const profileRow = profileResult.rows[0];
+
+    return {
+      id: row.id,
+      profile: {
+        id: profileRow.id,
+        name: profileRow.name,
+        role: profileRow.role,
+        description: profileRow.description,
+        weight: profileRow.weight,
+        soul: profileRow.soul,
+      },
+      joinedAt: new Date(row.joined_at),
+      isActive: row.is_active,
+      budget: {
+        credits: row.budget_credits,
+        maxCredits: row.budget_max_credits,
+        lastRefill: new Date(row.budget_last_refill),
+      },
+    };
   }
 }
