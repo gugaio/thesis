@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { spawn } from 'child_process';
-import { writeFileSync, unlinkSync } from 'fs';
+import { writeFileSync } from 'fs';
 import path from 'path';
 
 const CLI_PATH = path.join(__dirname, '../dist/index.js');
@@ -82,6 +82,8 @@ describe('CLI - Fase 2', () => {
   describe('Full Flow Integration', () => {
     let sessionId: string;
     let agentId: string;
+    let docId: string;
+    let tempFilePath: string;
 
     it('should create session via CLI', async () => {
       const result = await runCli([
@@ -101,7 +103,7 @@ describe('CLI - Fase 2', () => {
 
     it('should upload document via CLI', async () => {
       const testContent = 'Test document for Fase 2';
-      const tempFilePath = `/tmp/fase2-test-doc-${Date.now()}.txt`;
+      tempFilePath = `/tmp/fase2-test-doc-${Date.now()}.txt`;
       writeFileSync(tempFilePath, testContent);
 
       const result = await runCli(['upload-doc', '--session', sessionId, '--file', tempFilePath]);
@@ -109,7 +111,47 @@ describe('CLI - Fase 2', () => {
       expect(result.code).toBe(0);
       expect(result.stdout).toContain('✅ Document uploaded successfully!');
 
-      unlinkSync(tempFilePath);
+      const docMatch = result.stdout.match(/Document ID:\s+([a-f0-9-]+)/);
+      expect(docMatch).toBeDefined();
+      docId = docMatch![1];
+    });
+
+    it('should show document ID in status', async () => {
+      const result = await runCli(['status', '--session', sessionId]);
+
+      expect(result.code).toBe(0);
+      expect(result.stdout).toContain('📄 Documents');
+      expect(result.stdout).toContain('ID: ' + docId);
+    });
+
+    it('should read document content via CLI', async () => {
+      const result = await runCli(['read-doc', '--session', sessionId, '--doc', docId]);
+
+      expect(result.code).toBe(0);
+      expect(result.stdout).toContain('📄 Document Content');
+      expect(result.stdout).toContain('Test document for Fase 2');
+    });
+
+    it('should read document and save to file', async () => {
+      const outputFilePath = `/tmp/fase2-doc-output-${Date.now()}.txt`;
+      const result = await runCli(['read-doc', '--session', sessionId, '--doc', docId, '--output', outputFilePath]);
+
+      expect(result.code).toBe(0);
+      expect(result.stdout).toContain('Document content saved to:');
+      expect(result.stdout).toContain(outputFilePath);
+
+      const fs = (await import('fs')).default;
+      const content = fs.readFileSync(outputFilePath, 'utf-8');
+      expect(content).toContain('Test document for Fase 2');
+
+      fs.unlinkSync(outputFilePath);
+    });
+
+    it('should clean up temporary file', () => {
+      const fs = (await import('fs')).default;
+      if (tempFilePath) {
+        fs.unlinkSync(tempFilePath);
+      }
     });
 
     it('should join session with debt profile', async () => {

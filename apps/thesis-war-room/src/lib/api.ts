@@ -54,6 +54,21 @@ class APIClient {
   async getSessionReport(id: string): Promise<any> {
     return this.request<any>(`/sessions/${id}/report`);
   }
+
+  async getDocumentContent(sessionId: string, docId: string): Promise<{ text: string; type: string }> {
+    return this.request<{ text: string; type: string }>(`/sessions/${sessionId}/documents/${docId}/content`);
+  }
+
+  async downloadDocument(sessionId: string, docId: string): Promise<Blob> {
+    const response = await fetch(`${this.baseUrl}/sessions/${sessionId}/documents/${docId}`);
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: response.statusText }));
+      throw new Error(error.error || response.statusText);
+    }
+
+    return response.blob();
+  }
 }
 
 export const apiClient = new APIClient(API_URL);

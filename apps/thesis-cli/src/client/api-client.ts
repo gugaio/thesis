@@ -80,6 +80,28 @@ export class ApiClient {
     }
   }
 
+  async downloadDocument(sessionId: string, docId: string): Promise<Buffer> {
+    try {
+      const response = await this.client.get(`/sessions/${sessionId}/documents/${docId}`, {
+        responseType: 'arraybuffer',
+      });
+      return Buffer.from(response.data);
+    } catch (error) {
+      const err = error as AxiosError<{ error: string }>;
+      throw new Error(err.response?.data?.error || err.message);
+    }
+  }
+
+  async getDocumentContent(sessionId: string, docId: string): Promise<{ text: string; type: string }> {
+    try {
+      const response = await this.client.get(`/sessions/${sessionId}/documents/${docId}/content`);
+      return response.data;
+    } catch (error) {
+      const err = error as AxiosError<{ error: string }>;
+      throw new Error(err.response?.data?.error || err.message);
+    }
+  }
+
   async joinSession(
     sessionId: string,
     profileRole: string,

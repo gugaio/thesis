@@ -6,6 +6,7 @@ import { LedgerRepository } from '../repositories/ledger.repository.js';
 import { LedgerService } from '../services/ledger.service.js';
 import { getPool } from '../db/connection.js';
 import { publishEvent } from '../websocket/event-publisher.js';
+import { promises as fs } from 'fs';
 
 export async function documentRoutes(fastify: FastifyInstance): Promise<void> {
   const pool = getPool();
@@ -69,6 +70,56 @@ export async function documentRoutes(fastify: FastifyInstance): Promise<void> {
       const documents = await documentRepo.findBySessionId(id);
 
       return reply.send(documents);
+    }
+  );
+
+  fastify.get(
+    '/sessions/:id/documents/:docId',
+    async (
+      request: FastifyRequest<{ Params: { id: string; docId: string } }>,
+      reply
+    ) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { id: sessionId, docId } = request.params;
+
+      const doc = await documentRepo.findById(docId);
+
+      if (!doc) {
+        return reply.status(404).send({ error: 'Document not found' });
+      }
+
+      const buffer = await fs.readFile(doc.filePath);
+
+      return reply
+        .header('Content-Type', doc.type)
+        .header('Content-Disposition', `attachment; filename="${doc.name}"`)
+        .header('Content-Length', buffer.length)
+        .send(buffer);
+    }
+  );
+
+  fastify.get(
+    '/sessions/:id/documents/:docId/content',
+    async (
+      request: FastifyRequest<{ Params: { id: string; docId: string } }>,
+      reply
+    ) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { id: sessionId, docId } = request.params;
+
+      try {
+        const { text, type } = await documentRepo.extractText(docId);
+
+        return reply.send({ text, type });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+        if (errorMessage.includes('not found')) {
+          return reply.status(404).send({ error: errorMessage });
+        }
+
+        return reply.status(400).send({ error: errorMessage });
+      }
     }
   );
 }

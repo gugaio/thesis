@@ -90,6 +90,44 @@ program
   });
 
 program
+  .command('read-doc')
+  .description('Read document content')
+  .option('--session <id>', 'Session ID')
+  .option('--doc <id>', 'Document ID')
+  .option('--output <path>', 'Save content to file (optional)')
+  .action(async (options) => {
+    try {
+      if (!options.session) {
+        console.error('Error: --session is required');
+        process.exit(1);
+      }
+
+      if (!options.doc) {
+        console.error('Error: --doc is required');
+        process.exit(1);
+      }
+
+      const client = new ApiClient(process.env.API_URL);
+      const result = await client.getDocumentContent(options.session, options.doc);
+
+      if (options.output) {
+        const fs = (await import('fs')).default;
+        fs.writeFileSync(options.output, result.text, 'utf-8');
+        console.log('✅ Document content saved to:', options.output);
+        console.log(`Type: ${result.type}`);
+      } else {
+        console.log('📄 Document Content');
+        console.log(`Type: ${result.type}`);
+        console.log('---');
+        console.log(result.text);
+      }
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+program
   .command('join-session')
   .description('Join a session with an agent profile')
   .option('--session <id>', 'Session ID')
@@ -222,7 +260,14 @@ program
         console.log('No documents uploaded yet.');
       } else {
         result.documents.forEach((doc, idx) => {
-          console.log(`${idx + 1}. ${doc.name} (${doc.type}, ${doc.size} bytes)`);
+          console.log(`${idx + 1}. ${doc.name}`);
+          console.log(`   ID: ${doc.id}`);
+          console.log(`   Type: ${doc.type}`);
+          console.log(`   Size: ${doc.size} bytes`);
+          console.log(`   Uploaded: ${doc.uploadedAt}`);
+          if (idx < result.documents.length - 1) {
+            console.log('');
+          }
         });
       }
 

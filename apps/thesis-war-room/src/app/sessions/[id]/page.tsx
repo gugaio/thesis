@@ -9,6 +9,7 @@ import { AgentsPanel } from '@/components/AgentsPanel';
 import { VotesPanel } from '@/components/VotesPanel';
 import { MessagesPanel } from '@/components/MessagesPanel';
 import { ReportSection } from '@/components/ReportSection';
+import { DocumentsList } from '@/components/DocumentsList';
 import { Loader2, Wifi, WifiOff, Upload } from 'lucide-react';
 
 interface PageProps {
@@ -126,6 +127,8 @@ export default function SessionPage({ params }: PageProps) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <SessionHeader session={data.session} hypothesis={data.hypothesis} />
+
+          <DocumentsList documents={data.documents} sessionId={sessionId || ''} />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <VotesPanel votes={data.votes} />
