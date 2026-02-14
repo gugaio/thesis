@@ -1,0 +1,28 @@
+{
+  "name": "thesis-agent-runtime",
+  "version": "0.1.0",
+  "description": "Automated multi-agent analysis system using Worker Threads and Mono-pi",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@mariozechner/pi-agent-core": "0.50.7",
+    "@mariozechner/pi-ai": "0.50.7",
+    "dotenv": "^17.2.3",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.10",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^1.6.0"
+  }
+}
