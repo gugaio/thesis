@@ -27,12 +27,12 @@ Estrutura sugerida:
 2. `apps/thesis-gateway`: worker que orquestra agent loop e entrega eventos.
 3. `apps/thesis-cli`: interface operacional (humanos e agentes externos).
 4. `apps/thesis-war-room`: dashboard read-only (Next.js).
-5. `packages/agent-core`: loop do Pi Moro, políticas e execução.
+5. `apps/thesis-agent-runtime`: loop do Pi Moro, políticas e execução (worker threads).
 6. `packages/prompt-adapter`: composição de prompt (base + SOUL + perfil + skills + restrições).
-7. `packages/skills`: parser/loader/registry de skills.
-8. `packages/tools`: tool registry (início: bash seguro).
-9. `packages/memory`: memória curta e longa.
-10. `packages/protocol`: contratos de evento/comando.
+7. `packages/tools`: tool registry (início: bash seguro).
+8. `packages/memory`: memória curta e longa.
+9. `packages/protocol`: contratos de evento/comando.
+10. `packages/skills`: parser/loader/registry de skills.
 11. `packages/testing`: fixtures e testes e2e.
 
 ## 4) Conceitos de domínio (THESIS)
@@ -41,12 +41,13 @@ Estrutura sugerida:
 3. Agent Profile: especialidade com prompt e peso.
 4. Interaction Budget: créditos por ação do agente.
 5. Ledger: trilha de auditoria completa de opiniões, ações e votos.
+6. Autonomous Decision Making: agentes decidem autonomamente baseados em contexto completo (não hardcoded).
 
 ## 5) Prompt Adapter (SOUL.md)
 Ordem de composição obrigatória:
 1. `base_system`
 2. `SOUL.md` global
-3. `profile soul` (Debt/Tech/Market/Branding)
+3. `profile soul` (Debt/Tech/Market)
 4. skills ativas
 5. runtime constraints (budget, tool policy, session rules)
 
@@ -82,6 +83,7 @@ Versão futura:
 2. embeddings só quando necessário.
 
 ## 9) Roadmap incremental (com validação)
+
 ### Fase 0: Foundation
 Objetivo: monorepo, contratos e ambiente docker.
 Entrega: API/CLI/Gateway sobem com comando único.
@@ -128,15 +130,74 @@ Objetivo: dashboard read-only em tempo real.
 Entrega: timeline da sessão, agentes, créditos, votos e relatório.
 Teste: sessão ao vivo refletida via websocket sem inconsistência.
 
-### Fase 6: Hardening
-Objetivo: confiabilidade e segurança operacional.
-Entrega: retries, observabilidade, limites de execução, auditoria.
-Teste: cenários de falha (timeout, restart, desconexão).
+### Fase 6: Integração Agent Runtime
+Objetivo: completar infraestrutura de agent runtime.
+Entrega: mono-pi integration, prompt-adapter, tools, skills, orquestração básica.
+Teste: build + tipos validados.
 
-### Fase 7: Integrações externas
+### Fase 6.5: Autonomia dos Agentes
+Objetivo: transformar agentes em verdadeiramente autônomos.
+Entrega:
+- Remover lógica hardcoded (decideAction por iteração)
+- Delegar decisões à LLM
+- LLM decide ação baseada em contexto completo
+- Resposta estruturada em JSON (opinion/message/vote/wait)
+Teste: build passando, tipos validados.
+
+### Fase 7: Integração LLM Real
+Objetivo: substituir mocks por LLM real.
+Entrega:
+- Configurar API provider (OpenAI, Anthropic, etc.)
+- Implementar integração mono-pi real
+- Testar geração de decisões reais
+- Validar parsing JSON de respostas
+Teste: decisões funcionando com LLM real, não mock.
+
+### Fase 8: Contexto Real em Agent Runtime
+Objetivo: agentes usam dados reais da API.
+Entrega:
+- Fetch de documents da sessão
+- Fetch de opinions anteriores
+- Fetch de messages
+- Fetch de votes
+- Popular AutonomousAgentContext completo
+Teste: contexto populado com dados reais da sessão.
+
+### Fase 9: Gateway Orquestração
+Objetivo: Gateway coordena 3 agentes automaticamente.
+Entrega:
+- Criar 3 worker threads (debt, tech, market)
+- Loop de iterações (até convergência ou max)
+- Coordenar execuções paralelas
+- Tratamento de resultados
+Teste: 3 agentes rodando em paralelo, decisões sendo feitas.
+
+### Fase 10: Comando CLI analyze Real
+Objetivo: `analyze --session <id>` funciona de verdade.
+Entrega:
+- CLI inicia análise automatizada
+- Gateway orquestra agentes
+- Agentes decidem autonomamente com contexto real
+- Progresso visível em tempo real (WebSocket)
+Teste: comando analyze inicia análise completa.
+
+### Fase 11: Integrações Externas
 Objetivo: adicionar canais externos sem mexer no core.
-Entrega: SDK de adapter + 1 integração (Slack ou WhatsApp).
+Entrega:
+- SDK de adapter
+- Integrações opcionais (Slack, WhatsApp, etc.)
+- Export de resultados (CRM, etc.)
 Teste: fluxo e2e completo por canal externo.
+
+### Fase 12: Hardening (FINAL)
+Objetivo: confiabilidade e segurança operacional em sistema completo.
+Entrega:
+- Retries automáticos em chamadas de LLM
+- Observabilidade (metrics, logs, traces) em produção
+- Timeout enforcement em orquestração real
+- Rate limiting em API real
+- Testes de resiliência em produção
+Teste: cenários de falha (timeout, restart, desconexão) em sistema real.
 
 ## 10) Protocolo de desenvolvimento (obrigatório em toda fase)
 1. Drafting: schema + interfaces + contratos.
@@ -145,8 +206,14 @@ Teste: fluxo e2e completo por canal externo.
 4. Verification: executar comandos reais da fase antes de entregar.
 5. Evidence: anexar checklist de teste com resultado.
 
-## 11) Critério de avanço entre fases
+## 11) Critérios de avanço entre fases
 1. testes da fase atual verdes
 2. demo curta reproduzível
 3. nenhum blocker crítico aberto
 4. dívida técnica registrada com prazo
+
+## 12) Princípios de Evolução
+1. **Hardening como ÚLTIMA fase**: Só implementar retries, rate limiting, observabilidade quando o sistema estiver completo e rodando com LLM real.
+2. **Testes manuais antes de autônomos**: Validar toda infraestrutura (API, CLI, repositories) antes de adicionar complexidade de LLM.
+3. **Incremento lógico**: LLM real → Contexto real → Orquestração → CLI → Hardening (não pular etapas).
+4. **Validação por fase**: Cada fase entregue deve ter testes validando suas funcionalidades.

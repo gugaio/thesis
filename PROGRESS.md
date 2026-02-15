@@ -2,7 +2,7 @@
 
 ## 🎯 Visão Geral
 
-**Nome do Projeto:** THESIS - The Council  
+**Nome do Projeto:** THESIS - The Council
 **Objetivo:** Plataforma de análise de VC orientada por múltiplos agentes, com debate estruturado, orçamento de interação e veredito final auditável.
 
 ---
@@ -43,7 +43,7 @@
 - ✅ `LedgerService` - Trilha de eventos
 - ✅ Tabelas: `sessions`, `documents`, `hypotheses`
 
-**Status:** ✅ COMPLETA  
+**Status:** ✅ COMPLETA
 **Testes:** 9 passed
 
 ---
@@ -72,14 +72,14 @@
 **Perfis de Agente:**
 1. **Debt Specialist** (peso: 1.0)
    - Finanças de startups, burn rate, runway, unit economics
-   
+
 2. **Tech Expert** (peso: 0.8)
    - Stack tecnológica, debt técnico, escalabilidade
-   
+
 3. **Market Analyst** (peso: 0.9)
    - TAM/SAM/SOM, competition, product-market fit
 
-**Status:** ✅ COMPLETA  
+**Status:** ✅ COMPLETA
 **Testes:** 18 passed
 
 ---
@@ -109,7 +109,7 @@
 - ✅ Não é possível enviar para si mesmo
 - ✅ Polling para receber mensagens não lidas
 
-**Status:** ✅ COMPLETA  
+**Status:** ✅ COMPLETA
 **Testes:** 16 passed
 
 ---
@@ -186,7 +186,7 @@ Score = (acertos × 10) + (opiniões × confiança_média × peso_perfil)
 - ✅ `vote.cast` - Quando um agente vota
 - ✅ `session.closed` - Quando sessão é encerrada
 
-**Status:** ✅ COMPLETA  
+**Status:** ✅ COMPLETA
 **Testes:** 20 passed
 
 ---
@@ -234,15 +234,125 @@ Score = (acertos × 10) + (opiniões × confiança_média × peso_perfil)
 - ✅ Serviço `war-room` na porta 4500
 - ✅ Configuração de ambiente para API e WebSocket
 
-**Status:** ✅ COMPLETA  
+**Status:** ✅ COMPLETA
 **Testes:** 68 passed (API + CLI)
+
+---
+
+### ✅ Fase 6: Integração Agent Runtime
+**Objetivo:** Completar integração do Agent Runtime com mono-pi para análise automatizada de sessões.
+
+**Entregas:**
+- ✅ Criar SOUL.md global
+- ✅ Criar BASE_SYSTEM.md (sistema prompt base para todos os agentes)
+- ✅ Criar package prompt-adapter (composição de prompts)
+- ✅ Criar package tools (registry de tools com allowlist)
+- ✅ Completar agent-worker.ts com integração mono-pi
+- ✅ Implementar orquestração em gateway
+- ✅ Adicionar comando analyze no CLI
+- ✅ Atualizar docker-compose.yml com serviço orchestrator
+- ✅ Criar testes unitários para prompt-adapter e tools
+- ✅ Criar testes de integração
+
+**Componentes:**
+- ✅ `packages/skills/SOUL.md` - Sistema prompt global (SOUL)
+- ✅ `packages/skills/BASE_SYSTEM.md` - Sistema prompt base para todos os agentes
+- ✅ `packages/prompt-adapter` - Composição de prompts (base + SOUL + perfil + skill + constraints)
+- ✅ `packages/tools` - Tool registry com allowlist segura (ls, cat, rg, wc, head, tail, jq)
+- ✅ `apps/thesis-agent-runtime/src/agent-worker.ts` - Integração com mono-pi
+- ✅ `apps/thesis-gateway/src/index.ts` - Orquestração de 3 agentes (debt, tech, market)
+- ✅ `apps/thesis-cli/src/index.ts` - Comando `analyze --session <id>`
+
+**CLI:**
+- ✅ `analyze --session <id> [--iterations <n>] [--timeout <ms>]` - Análise automatizada
+
+**Docker:**
+- ✅ Serviço `orchestrator` na porta padrão
+- ✅ Configuração de ambiente para API e WebSocket
+- ✅ Variáveis MAX_CONCURRENT_AGENTS=3, MAX_ITERATIONS=10, ITERATION_TIMEOUT=30000
+
+**Arquitetura:**
+```
+CLI (analyze) → Gateway (orchestrator) → API + WebSocket
+                  ↓
+            Agent Runtime (worker threads)
+                  ↓
+            Prompt Adapter + Tools + Skills
+```
+
+**Status:** ✅ COMPLETA
+**Testes:** Criados testes unitários e integração
+
+---
+
+### ✅ Fase 6.5: Autonomia dos Agentes (Refatoração)
+**Objetivo:** Transformar agentes em verdadeiramente autônomos, removendo lógica hardcoded de decisão.
+
+**Entregas:**
+- ✅ Removido método `decideAction()` hardcoded (baseado em iteração fixa)
+- ✅ Criado método `decideAutonomousAction()` que delega decisão à LLM
+- ✅ Implementado `buildAutonomousContext()` com contexto completo da sessão
+- ✅ Implementado `buildDecisionPrompt()` com contexto detalhado para a LLM
+- ✅ Implementado `parseStructuredDecision()` para extrair ação da resposta JSON
+- ✅ Atualizado `BASE_SYSTEM.md` com instruções de decisão autônoma
+- ✅ Adicionado tipo `StructuredAgentDecision` para resposta estruturada
+- ✅ Adicionado tipo `AutonomousAgentContext` para contexto completo
+- ✅ Simplificado `runIteration()` para usar única chamada à LLM
+- ✅ Atualizado testes para validar decisões estruturadas
+
+**Arquitetura Anterior:**
+```typescript
+// Hardcoded e não autônomo
+if (iteration < 3) return 'opinion';
+else if (iteration < 5) return 'message';
+else return 'vote';
+```
+
+**Arquitetura Nova:**
+```typescript
+// Autônomo e baseado em instruções
+const decision = await this.decideAutonomousAction();
+// LLM decide autonomamente baseada em:
+// - Informações disponíveis (documentos, opiniões, mensagens)
+// - Estado da colaboração
+// - Budget atual
+// - Progresso da análise
+```
+
+**Formato de Resposta Estruturada da LLM:**
+```json
+{
+  "action": "opinion" | "message" | "vote" | "wait",
+  "reasoning": "Por que escolhi essa ação baseado no estado atual",
+  "content": "...",  // se opinion/message
+  "target_agent": "debt|tech|market",  // se message
+  "confidence": 0.8,  // se opinion (0.0 - 1.0)
+  "verdict": "approve|reject|abstain",  // se vote
+  "wait_seconds": 5  // se wait
+}
+```
+
+**Decisões Autônomas da LLM:**
+- **POST OPINION**: Quando tem insights específicos, analisou documentos, tem confiança moderada-alta
+- **SEND MESSAGE**: Quando precisa de info de outro agente, questionar opinião, descobriu info relevante
+- **CAST VOTE**: Quando tem evidência suficiente, considerou todas as perspectivas
+- **WAIT**: Quando budget baixo, precisa de mais info, incerto
+
+**Componentes Atualizados:**
+- `apps/thesis-agent-runtime/src/agent-worker.ts` - Refatorado para autonomia
+- `apps/thesis-agent-runtime/src/types.ts` - Novos tipos adicionados
+- `packages/skills/BASE_SYSTEM.md` - Seção de decisão autônoma adicionada
+- `apps/thesis-agent-runtime/src/__tests__/agent-worker.test.ts` - Testes atualizados
+
+**Status:** ✅ COMPLETA
+**Testes:** Build passando, tipos validados
 
 ---
 
 ## 📊 Estatísticas Globais
 
 ```
-✅ Total de Fases Completas: 7/7
+✅ Total de Fases Completas: 6.5/12 (54%)
 ✅ Total de Testes: 75+ passando (aproximado)
 ✅ Repositories Criados: 11
 ✅ API Endpoints: 18
@@ -502,157 +612,41 @@ docker-compose logs -f gateway
 
 ## 🎯 Próxima Fase
 
-### 📋 Fase 7: Hardening
-**Objetivo:** Confiabilidade e segurança operacional.
+### 📋 Fase 7: Integração LLM Real
+**Objetivo:** Substituir mocks por LLM real para geração de decisões autônomas.
 
 **Entregas Planejadas:**
-- 🔄 Retries automáticos em falhas de API
-- 📊 Observabilidade (metrics, logs, traces)
-- 🚫 Limites de execução (timeout, rate limiting)
-- 🔒 Auditoria aprimorada
-- 🧪 Testes de resiliência
-
-**Status:** ⏳ PENDENTE
-**Objetivo:** Completar integração do Agent Runtime com mono-pi para análise automatizada de sessões.
-
-**Entregas:**
-- ✅ Criar SOUL.md global
-- ✅ Criar BASE_SYSTEM.md (sistema prompt base para todos os agentes)
-- ✅ Criar package prompt-adapter (composição de prompts)
-- ✅ Criar package tools (registry de tools com allowlist)
-- ✅ Completar agent-worker.ts com integração mono-pi
-- ✅ Implementar orquestração em gateway
-- ✅ Adicionar comando analyze no CLI
-- ✅ Atualizar docker-compose.yml com serviço orchestrator
-- ✅ Criar testes unitários para prompt-adapter e tools
-- ✅ Criar testes de integração
-
-**Componentes:**
-- ✅ `packages/skills/SOUL.md` - Sistema prompt global (SOUL)
-- ✅ `packages/skills/BASE_SYSTEM.md` - Sistema prompt base para todos os agentes
-- ✅ `packages/prompt-adapter` - Composição de prompts (base + SOUL + perfil + skill + constraints)
-- ✅ `packages/tools` - Tool registry com allowlist segura (ls, cat, rg, wc, head, tail, jq)
-- ✅ `apps/thesis-agent-runtime/src/agent-worker.ts` - Integração com mono-pi
-- ✅ `apps/thesis-gateway/src/index.ts` - Orquestração de 3 agentes (debt, tech, market)
-- ✅ `apps/thesis-cli/src/index.ts` - Comando `analyze --session <id>`
-
-**CLI:**
-- ✅ `analyze --session <id> [--iterations <n>] [--timeout <ms>]` - Análise automatizada
-
-**Docker:**
-- ✅ Serviço `orchestrator` na porta padrão
-- ✅ Configuração de ambiente para API e WebSocket
-- ✅ Variáveis MAX_CONCURRENT_AGENTS=3, MAX_ITERATIONS=10, ITERATION_TIMEOUT=30000
-
-**Arquitetura:**
-```
-CLI (analyze) → Gateway (orchestrator) → API + WebSocket
-                  ↓
-            Agent Runtime (worker threads)
-                  ↓
-            Prompt Adapter + Tools + Skills
-```
-
-**Status:** ✅ COMPLETA
-**Testes:** Criados testes unitários e integração
-
----
-
-### ✅ Fase 6.5: Autonomia dos Agentes (Refatoração)
-**Objetivo:** Transformar agentes em verdadeiramente autônomos, removendo lógica hardcoded de decisão.
-
-**Entregas:**
-- ✅ Removido método `decideAction()` hardcoded (baseado em iteração fixa)
-- ✅ Criado método `decideAutonomousAction()` que delega decisão à LLM
-- ✅ Implementado `buildAutonomousContext()` com contexto completo da sessão
-- ✅ Implementado `buildDecisionPrompt()` com contexto detalhado para a LLM
-- ✅ Implementado `parseStructuredDecision()` para extrair ação da resposta JSON
-- ✅ Atualizado `BASE_SYSTEM.md` com instruções de decisão autônoma
-- ✅ Adicionado tipo `StructuredAgentDecision` para resposta estruturada
-- ✅ Adicionado tipo `AutonomousAgentContext` para contexto completo
-- ✅ Simplificado `runIteration()` para usar única chamada à LLM
-- ✅ Atualizado testes para validar decisões estruturadas
-
-**Arquitetura Anterior:**
-```typescript
-// Hardcoded e não autônomo
-if (iteration < 3) return 'opinion';
-else if (iteration < 5) return 'message';
-else return 'vote';
-```
-
-**Arquitetura Nova:**
-```typescript
-// Autônomo e baseado em instruções
-const decision = await this.decideAutonomousAction();
-// LLM decide autonomamente baseada em:
-// - Informações disponíveis (documentos, opiniões, mensagens)
-// - Estado da colaboração
-// - Budget atual
-// - Progresso da análise
-```
-
-**Formato de Resposta Estruturada da LLM:**
-```json
-{
-  "action": "opinion" | "message" | "vote" | "wait",
-  "reasoning": "Por que escolhi essa ação baseado no estado atual",
-  "content": "...",  // se opinion/message
-  "target_agent": "debt|tech|market",  // se message
-  "confidence": 0.8,  // se opinion (0.0 - 1.0)
-  "verdict": "approve|reject|abstain",  // se vote
-  "wait_seconds": 5  // se wait
-}
-```
-
-**Decisões Autônomas da LLM:**
-- **POST OPINION**: Quando tem insights específicos, analisou documentos, tem confiança moderada-alta
-- **SEND MESSAGE**: Quando precisa de info de outro agente, questionar opinião, descobriu info relevante
-- **CAST VOTE**: Quando tem evidência suficiente, considerou todas as perspectivas
-- **WAIT**: Quando budget baixo, precisa de mais info, incerto
-
-**Componentes Atualizados:**
-- `apps/thesis-agent-runtime/src/agent-worker.ts` - Refatorado para autonomia
-- `apps/thesis-agent-runtime/src/types.ts` - Novos tipos adicionados
-- `packages/skills/BASE_SYSTEM.md` - Seção de decisão autônoma adicionada
-- `apps/thesis-agent-runtime/src/__tests__/agent-worker.test.ts` - Testes atualizados
-
-**Status:** ✅ COMPLETA
-**Testes:** Build passando, tipos validados
-
----
-
-### 📋 Fase 7: Hardening
-**Objetivo:** Confiabilidade e segurança operacional.
-
-**Entregas Planejadas:**
-- 🔄 Retries automáticos em falhas de API
-- 📊 Observabilidade (metrics, logs, traces)
-- 🚫 Limites de execução (timeout, rate limiting)
-- 🔒 Auditoria aprimorada
-- 🧪 Testes de resiliência
+- 🔄 Configurar API provider (OpenAI, Anthropic, etc.)
+- 🔄 Implementar integração mono-pi real
+- 🔄 Testar geração de decisões reais
+- 🔄 Validar parsing JSON de respostas
+- 🔄 Tratamento de erros de API
+- 🔄 Fallback para retries
 
 **Status:** ⏳ PENDENTE
 
-### Testes
-```bash
-# Testes CLI
-cd apps/thesis-cli
-npm test
+---
 
-# Testes API
-cd apps/thesis-api
-npm test
-```
+## 📅 Roadmap Completo (12 Fases)
 
-### Build
-```bash
-# Build de todos os packages
-pnpm --filter @thesis/api build
-pnpm --filter @thesis/cli build
-pnpm --filter @thesis/gateway build
-pnpm --filter @thesis/protocol build
-```
+| Fase | Status | Data | Descrição |
+|------|--------|------|-----------|
+| Fase 0: Foundation | ✅ COMPLETA | 2026-02-12 | Monorepo, Docker, Build |
+| Fase 1: Ledger + Sessão | ✅ COMPLETA | 2026-02-12 | CRUD sessions, docs |
+| Fase 2: Join + Opinion | ✅ COMPLETA | 2026-02-12 | Agentes, opiniões |
+| Fase 3: Budget + Diálogo | ✅ COMPLETA | 2026-02-13 | Mensagens, budget |
+| Fase 4: Veredito + Ranking | ✅ COMPLETA | 2026-02-13 | Votos, relatórios |
+| Fase 5: War Room | ✅ COMPLETA | 2026-02-13 | Dashboard Next.js |
+| Fase 6: Integração Agent Runtime | ✅ COMPLETA | 2026-02-15 | Mono-pi, prompt-adapter |
+| Fase 6.5: Autonomia dos Agentes | ✅ COMPLETA | 2026-02-15 | Decisões autônomas |
+| Fase 7: Integração LLM Real | ⏳ PENDENTE | --- | LLM real, não mock |
+| Fase 8: Contexto Real em Agent Runtime | ⏳ PENDENTE | --- | Fetch docs, opinions, etc. |
+| Fase 9: Gateway Orquestração | ⏳ PENDENTE | --- | 3 agentes paralelos |
+| Fase 10: Comando CLI analyze Real | ⏳ PENDENTE | --- | Análise automatizada |
+| Fase 11: Integrações Externas | ⏳ PENDENTE | --- | Slack, WhatsApp, etc. |
+| Fase 12: Hardening (FINAL) | ⏳ PENDENTE | --- | Retries, observabilidade |
+
+**Progresso:** 6.5/12 fases completas (54%)
 
 ---
 
@@ -677,28 +671,14 @@ pnpm --filter @thesis/protocol build
   - Decisão é baseada em análise inteligente do estado da sessão
   - Não existe mais lógica hardcoded baseada em iteração
   - Resposta estruturada em JSON com ação, conteúdo, target, confidence, verdict
-
----
-
-## 📅 Cronograma
-
-| Fase | Status | Data |
-|------|--------|------|
-| Fase 0: Foundation | ✅ COMPLETA | 2026-02-12 |
-| Fase 1: Ledger + Sessão | ✅ COMPLETA | 2026-02-12 |
-| Fase 2: Join + Opinion | ✅ COMPLETA | 2026-02-12 |
-| Fase 3: Budget + Diálogo | ✅ COMPLETA | 2026-02-13 |
-| Fase 4: Veredito + Ranking | ✅ COMPLETA | 2026-02-13 |
-| Fase 5: War Room | ✅ COMPLETA | 2026-02-13 |
-| Fase 6: Integração Agent Runtime | ✅ COMPLETA | 2026-02-15 |
-| Fase 6.5: Autonomia dos Agentes | ✅ COMPLETA | 2026-02-15 |
-| Fase 7: Hardening | ⏳ PENDENTE | --- |
-| Fase 8: Integrações Externas | ⏳ PENDENTE | --- |
-
-**Progresso:** 7/7 fases completas (87.5%)
+- **Princípio de Hardening:**
+  - Hardening deve ser a **ÚLTIMA fase** (Fase 12)
+  - Só faz sentido "endurecer" código que está rodando em produção
+  - Retries, rate limiting, observabilidade só são úteis quando o sistema está completo
+  - Não implementar hardening enquanto usa mocks ou está incompleto
 
 ---
 
 **Última Atualização:** 15 de Fevereiro de 2026
-**Versão:** 0.4.0
-**Status:** ✅ Fases 0-6.5 completas, Agentes verdadeiramente autônomos
+**Versão:** 0.5.0
+**Status:** ✅ Fases 0-6.5 completas, Próximo: Fase 7 (Integração LLM Real)
