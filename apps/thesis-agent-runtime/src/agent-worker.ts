@@ -2,7 +2,7 @@ import { parentPort, workerData } from 'worker_threads';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readFileSync } from 'fs';
-import type { WorkerMessage, AgentTask, AgentResult, AgentProfile } from './types.js';
+import type { WorkerMessage, AgentTask, AgentResult, AgentProfile, AutonomousAgentContext, StructuredAgentDecision } from './types.js';
 import { log } from './config.js';
 import { composePrompt, buildConstraints, savePromptSnapshot } from '@thesis/prompt-adapter';
 import { ToolRegistry, BashToolExecutor } from '@thesis/tools';
@@ -13,18 +13,6 @@ interface PiAgent {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
-interface AgentContext {
-  sessionId: string;
-  agentId: string;
-  profile: AgentProfile;
-  baseSystem: string;
-  soul: string;
-  budget: number;
-  documents: any[];
-  previousMessages: any[];
-  previousOpinions: any[];
-}
 
 export class AgentWorker {
   private taskId: string;
@@ -46,6 +34,8 @@ export class AgentWorker {
   private toolRegistry: ToolRegistry;
   private toolExecutor: BashToolExecutor;
   private currentBudget: number;
+
+  private autonomousContext: AutonomousAgentContext | null = null;
 
   constructor(task: AgentTask) {
     this.taskId = task.agent_id;
@@ -81,6 +71,140 @@ export class AgentWorker {
     }
   }
 
+  private buildAutonomousContext(): AutonomousAgentContext {
+    return {
+      session_id: this.sessionId,
+      agent_id: this.taskId,
+      profile: this.profile,
+      iteration: this.iteration,
+      max_iterations: this.maxIterations,
+      budget: this.currentBudget,
+      hypothesis: '',
+      hypothesis_description: '',
+      documents: [],
+      other_agents: [],
+      previous_opinions: [],
+      previous_messages: [],
+      previous_votes: [],
+      session_status: 'active'
+    };
+  }
+
+  private async buildDecisionPrompt(context: AutonomousAgentContext): Promise<string> {
+    const constraints = buildConstraints({
+      budget: {
+        credits: context.budget,
+        minBuffer: this.minCreditsBuffer
+      },
+      toolPolicy: this.toolRegistry.getAllowedTools().map(t => t.description),
+      sessionRules: [
+        'Be clear and concise',
+        'Use Markdown formatting',
+        'Include confidence levels (0.0 - 1.0)',
+        'Cite specific evidence from documents'
+      ]
+    });
+
+    const systemPrompt = composePrompt(
+      this.baseSystem,
+      this.soul,
+      this.getProfileDescription(this.profile),
+      this.skillContent,
+      constraints
+    );
+
+    const contextSection = `
+# Current Session Context
+
+## Session Info
+- Session ID: ${context.session_id}
+- Your Agent ID: ${context.agent_id}
+- Your Profile: ${context.profile}
+- Current Iteration: ${context.iteration}/${context.max_iterations}
+- Session Status: ${context.session_status}
+
+## Budget
+- Current Credits: ${context.budget}
+- Minimum Buffer: ${this.minCreditsBuffer}
+
+## Investment Hypothesis
+${context.hypothesis}
+${context.hypothesis_description ? `\nDescription: ${context.hypothesis_description}` : ''}
+
+## Documents
+${context.documents.length > 0 ? context.documents.map(doc => `- ${doc.name} (${doc.type})`).join('\n') : 'No documents uploaded yet.'}
+
+## Other Agents
+${context.other_agents.map(agent => `- ${agent.profile} (ID: ${agent.id}, Active: ${agent.is_active})`).join('\n')}
+
+## Previous Opinions
+${context.previous_opinions.length > 0 ? context.previous_opinions.map(op => `- **${op.profile}**: ${op.content} (confidence: ${op.confidence})`).join('\n') : 'No opinions posted yet.'}
+
+## Previous Messages
+${context.previous_messages.length > 0 ? context.previous_messages.map(msg => `- **${msg.from_agent} → ${msg.to_agent}**: ${msg.content}`).join('\n') : 'No messages exchanged yet.'}
+
+## Previous Votes
+${context.previous_votes.length > 0 ? context.previous_votes.map(vote => `- **${vote.profile}**: ${vote.verdict}`).join('\n') : 'No votes cast yet.'}
+
+${context.final_verdict ? `## Final Verdict\n${context.final_verdict}` : ''}
+
+---
+
+# Your Task
+
+Based on the context above, decide what action to take next. You must respond with a valid JSON object following this structure:
+
+\`\`\`json
+{
+  "action": "opinion" | "message" | "vote" | "wait",
+  "reasoning": "Explain why you chose this action based on the current state",
+  "content": "...", // if action is opinion or message
+  "target_agent": "debt|tech|market", // if action is message
+  "confidence": 0.8, // if action is opinion (0.0 - 1.0)
+  "verdict": "approve|reject|abstain", // if action is vote
+  "wait_seconds": 5 // if action is wait
+}
+\`\`\`
+
+**IMPORTANT:**
+- Provide a clear, detailed reasoning that references specific information from the context
+- Choose the action that best contributes to the collective analysis
+- Be strategic about budget usage
+- Your response must be valid JSON only, no markdown, no extra text
+`;
+
+    return systemPrompt + contextSection;
+  }
+
+  private parseStructuredDecision(response: string): StructuredAgentDecision {
+    try {
+      const cleaned = response.trim()
+        .replace(/```json/g, '')
+        .replace(/```/g, '')
+        .trim();
+
+      const decision = JSON.parse(cleaned);
+
+      if (!decision.action || !['opinion', 'message', 'vote', 'wait'].includes(decision.action)) {
+        throw new Error(`Invalid action: ${decision.action}`);
+      }
+
+      if (!decision.reasoning) {
+        throw new Error('Missing reasoning in decision');
+      }
+
+      return decision as StructuredAgentDecision;
+    } catch (error) {
+      log.warn(`[Worker ${this.taskId}] Failed to parse structured decision, using fallback: ${response.substring(0, 100)}`);
+      
+      return {
+        action: 'wait',
+        reasoning: 'Failed to parse LLM response, waiting for next iteration',
+        wait_seconds: 5
+      };
+    }
+  }
+
   async initialize(): Promise<void> {
     log.debug(`[Worker ${this.taskId}] Initializing mono-pi agent...`);
 
@@ -108,44 +232,44 @@ export class AgentWorker {
     return profiles[profile];
   }
 
-  private async buildFullPrompt(context: AgentContext): Promise<string> {
-    const constraints = buildConstraints({
-      budget: {
-        credits: context.budget,
-        minBuffer: this.minCreditsBuffer
-      },
-      toolPolicy: this.toolRegistry.getAllowedTools().map(t => t.description),
-      sessionRules: [
-        'Be clear and concise',
-        'Use Markdown formatting',
-        'Include confidence levels (0.0 - 1.0)',
-        'Cite specific evidence from documents'
-      ]
-    });
+  private async decideAutonomousAction(): Promise<StructuredAgentDecision> {
+    log.debug(`[Worker ${this.taskId}] Making autonomous decision...`);
 
-    return composePrompt(
-      context.baseSystem,
-      context.soul,
-      this.getProfileDescription(this.profile),
-      this.skillContent,
-      constraints
-    );
-  }
+    const context = this.buildAutonomousContext();
+    const prompt = await this.buildDecisionPrompt(context);
 
-  private async decideAction(iteration: number, budget: number): Promise<'opinion' | 'message' | 'vote' | 'wait'> {
-    if (budget < this.minCreditsBuffer) {
-      return 'wait';
+    try {
+      const response = await this.piAgent!.generate({
+        prompt,
+        maxTokens: 800,
+        temperature: 0.7
+      });
+
+      const decision = this.parseStructuredDecision(response);
+      log.debug(`[Worker ${this.taskId}] Autonomously decided: ${decision.action} - ${decision.reasoning.substring(0, 100)}...`);
+
+      await savePromptSnapshot(
+        this.sessionId,
+        this.taskId,
+        prompt,
+        {
+          baseSystem: this.baseSystem,
+          soul: this.soul,
+          profile: this.getProfileDescription(this.profile),
+          skill: this.skillContent,
+          constraints: ''
+        }
+      );
+
+      return decision;
+    } catch (error) {
+      log.error(`[Worker ${this.taskId}] Error making autonomous decision:`, error);
+      return {
+        action: 'wait',
+        reasoning: 'Error making autonomous decision, waiting for next iteration',
+        wait_seconds: 5
+      };
     }
-
-    if (iteration < 3) {
-      return 'opinion';
-    } else if (iteration < 5) {
-      return 'message';
-    } else if (iteration < this.maxIterations) {
-      return 'vote';
-    }
-
-    return 'wait';
   }
 
   async runIteration(): Promise<AgentResult> {
@@ -177,199 +301,31 @@ export class AgentWorker {
       await this.initialize();
     }
 
-    const action = await this.decideAction(this.iteration, this.currentBudget);
-    log.debug(`[Worker ${this.taskId}] Decided action: ${action}`);
+    const decision = await this.decideAutonomousAction();
+    log.debug(`[Worker ${this.taskId}] Autonomously decided: ${decision.action}`);
 
-    switch (action) {
-      case 'opinion':
-        return this.generateOpinion();
-      case 'message':
-        return this.generateMessage();
-      case 'vote':
-        return this.generateVote();
-      default:
-        return {
-          agent_id: this.taskId,
-          iteration: this.iteration,
-          action: 'wait',
-          wait_seconds: 5,
-          reasoning: 'Waiting for next iteration'
-        };
-    }
-  }
-
-  private async generateOpinion(): Promise<AgentResult> {
-    log.debug(`[Worker ${this.taskId}] Generating opinion...`);
-
-    const context: AgentContext = {
-      sessionId: this.sessionId,
-      agentId: this.taskId,
-      profile: this.profile,
-      baseSystem: this.baseSystem,
-      soul: this.soul,
-      budget: this.currentBudget,
-      documents: [],
-      previousMessages: [],
-      previousOpinions: []
+    const result: AgentResult = {
+      agent_id: this.taskId,
+      iteration: this.iteration,
+      action: decision.action,
+      content: decision.content,
+      confidence: decision.confidence,
+      target_agent: decision.target_agent,
+      verdict: decision.verdict,
+      wait_seconds: decision.wait_seconds,
+      reasoning: decision.reasoning,
+      structured_response: decision
     };
 
-    const prompt = await this.buildFullPrompt(context);
-
-    try {
-      const response = await this.piAgent!.generate({
-        prompt,
-        maxTokens: 500,
-        temperature: 0.7
-      });
-
-      const confidence = this.extractConfidence(response);
-      const content = this.cleanResponse(response);
-
-      await savePromptSnapshot(
-        this.sessionId,
-        this.taskId,
-        prompt,
-        {
-          baseSystem: this.baseSystem,
-          soul: this.soul,
-          profile: this.getProfileDescription(this.profile),
-          skill: this.skillContent,
-          constraints: ''
-        }
-      );
-
+    if (decision.action === 'opinion' || decision.action === 'message' || decision.action === 'vote') {
       this.currentBudget -= 1;
-
-      return {
-        agent_id: this.taskId,
-        iteration: this.iteration,
-        action: 'opinion',
-        content,
-        confidence,
-        reasoning: `Opinion generated based on ${this.profile} analysis`
-      };
-    } catch (error) {
-      log.error(`[Worker ${this.taskId}] Error generating opinion:`, error);
-      throw error;
+      log.debug(`[Worker ${this.taskId}] Budget deducted: ${this.currentBudget} credits remaining`);
     }
+
+    return result;
   }
 
-  private async generateMessage(): Promise<AgentResult> {
-    log.debug(`[Worker ${this.taskId}] Generating message...`);
 
-    const targetAgent = this.getOtherAgent();
-
-    const context: AgentContext = {
-      sessionId: this.sessionId,
-      agentId: this.taskId,
-      profile: this.profile,
-      baseSystem: this.baseSystem,
-      soul: this.soul,
-      budget: this.currentBudget,
-      documents: [],
-      previousMessages: [],
-      previousOpinions: []
-    };
-
-    const prompt = await this.buildFullPrompt(context);
-    const messagePrompt = `${prompt}\n\nTask: Ask a clarifying question to the ${targetAgent} agent.`;
-
-    try {
-      const response = await this.piAgent!.generate({
-        prompt: messagePrompt,
-        maxTokens: 300,
-        temperature: 0.8
-      });
-
-      const content = this.cleanResponse(response);
-
-      this.currentBudget -= 1;
-
-      return {
-        agent_id: this.taskId,
-        iteration: this.iteration,
-        action: 'message',
-        content,
-        target_agent: targetAgent,
-        reasoning: `Question addressed to ${targetAgent} agent`
-      };
-    } catch (error) {
-      log.error(`[Worker ${this.taskId}] Error generating message:`, error);
-      throw error;
-    }
-  }
-
-  private async generateVote(): Promise<AgentResult> {
-    log.debug(`[Worker ${this.taskId}] Generating vote...`);
-
-    const context: AgentContext = {
-      sessionId: this.sessionId,
-      agentId: this.taskId,
-      profile: this.profile,
-      baseSystem: this.baseSystem,
-      soul: this.soul,
-      budget: this.currentBudget,
-      documents: [],
-      previousMessages: [],
-      previousOpinions: []
-    };
-
-    const prompt = await this.buildFullPrompt(context);
-    const votePrompt = `${prompt}\n\nTask: Based on your analysis and all available evidence, cast your final vote on the investment hypothesis. Options: approve, reject, abstain. Respond with just the verdict and a brief rationale.`;
-
-    try {
-      const response = await this.piAgent!.generate({
-        prompt: votePrompt,
-        maxTokens: 200,
-        temperature: 0.5
-      });
-
-      const verdict = this.extractVerdict(response);
-      const rationale = this.cleanResponse(response);
-
-      this.currentBudget -= 1;
-
-      return {
-        agent_id: this.taskId,
-        iteration: this.iteration,
-        action: 'vote',
-        verdict,
-        reasoning: rationale
-      };
-    } catch (error) {
-      log.error(`[Worker ${this.taskId}] Error generating vote:`, error);
-      throw error;
-    }
-  }
-
-  private extractConfidence(response: string): number {
-    const confidenceMatch = response.match(/confidence[:\s]*(\d+\.?\d*)/i);
-    if (confidenceMatch) {
-      const value = parseFloat(confidenceMatch[1]);
-      return Math.min(Math.max(value, 0), 1);
-    }
-    return 0.7;
-  }
-
-  private extractVerdict(response: string): 'approve' | 'reject' | 'abstain' {
-    const lower = response.toLowerCase();
-    if (lower.includes('approve')) return 'approve';
-    if (lower.includes('reject')) return 'reject';
-    return 'abstain';
-  }
-
-  private cleanResponse(response: string): string {
-    return response
-      .replace(/Confidence:?\s*\d+\.?\d*/gi, '')
-      .replace(/Verdict:?\s*(approve|reject|abstain)/gi, '')
-      .trim();
-  }
-
-  private getOtherAgent(): string {
-    const agents: AgentProfile[] = ['debt', 'tech', 'market'];
-    const otherAgents = agents.filter(a => a !== this.profile);
-    return otherAgents[Math.floor(Math.random() * otherAgents.length)];
-  }
 
   async stop(): Promise<void> {
     log.debug(`[Worker ${this.taskId}] Stopping...`);

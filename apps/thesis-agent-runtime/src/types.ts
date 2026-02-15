@@ -93,10 +93,61 @@ export interface AgentResult {
   action: 'opinion' | 'message' | 'vote' | 'wait';
   content?: string;
   confidence?: number;
-  target_agent?: string;
+  target_agent?: AgentProfile;
   verdict?: 'approve' | 'reject' | 'abstain';
   wait_seconds?: number;
   reasoning?: string;
+  structured_response?: StructuredAgentDecision;
+}
+
+export interface StructuredAgentDecision {
+  action: 'opinion' | 'message' | 'vote' | 'wait';
+  reasoning: string;
+  content?: string;
+  target_agent?: AgentProfile;
+  confidence?: number;
+  verdict?: 'approve' | 'reject' | 'abstain';
+  wait_seconds?: number;
+}
+
+export interface AutonomousAgentContext {
+  session_id: string;
+  agent_id: string;
+  profile: AgentProfile;
+  iteration: number;
+  max_iterations: number;
+  budget: number;
+  hypothesis: string;
+  hypothesis_description?: string;
+  documents: Array<{
+    id: string;
+    name: string;
+    type: string;
+    content_hash: string;
+  }>;
+  other_agents: Array<{
+    id: string;
+    profile: AgentProfile;
+    is_active: boolean;
+  }>;
+  previous_opinions: Array<{
+    agent_id: string;
+    profile: AgentProfile;
+    content: string;
+    confidence: number;
+  }>;
+  previous_messages: Array<{
+    from_agent: string;
+    to_agent: string;
+    content: string;
+  }>;
+  previous_votes: Array<{
+    agent_id: string;
+    profile: AgentProfile;
+    verdict: 'approve' | 'reject' | 'abstain';
+  }>;
+  session_status: 'created' | 'active' | 'paused' | 'closed';
+  final_verdict?: 'approve' | 'reject';
 }
 
 // Runtime config

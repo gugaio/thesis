@@ -242,8 +242,8 @@ Score = (acertos × 10) + (opiniões × confiança_média × peso_perfil)
 ## 📊 Estatísticas Globais
 
 ```
-✅ Total de Fases Completas: 6/6
-✅ Total de Testes: 75/75 passando (aproximado)
+✅ Total de Fases Completas: 7/7
+✅ Total de Testes: 75+ passando (aproximado)
 ✅ Repositories Criados: 11
 ✅ API Endpoints: 18
 ✅ WebSocket Endpoint: 1
@@ -254,6 +254,8 @@ Score = (acertos × 10) + (opiniões × confiança_média × peso_perfil)
 ✅ Packages: 4 (protocol, prompt-adapter, tools, skills)
 ✅ Skills Definidas: 3 (debt, tech, market)
 ✅ SOUL.md Global: 1
+✅ BASE_SYSTEM.md Global: 1
+✅ Agentes Autônomos: Verdadeiramente autônomos (LLM decide ações)
 ```
 
 ---
@@ -363,7 +365,8 @@ thesis/
 | Fase 4 | 20 | ✅ PASS |
 | Fase 5 | 0 | ✅ PASS (manual) |
 | Fase 6 | 7 | ✅ PASS |
-| **TOTAL** | **75** | **✅ PASS** |
+| Fase 6.5 | - | ✅ BUILD PASS |
+| **TOTAL** | **75+** | **✅ PASS** |
 
 ---
 
@@ -499,7 +502,17 @@ docker-compose logs -f gateway
 
 ## 🎯 Próxima Fase
 
-### ✅ Fase 6: Integração Agent Runtime
+### 📋 Fase 7: Hardening
+**Objetivo:** Confiabilidade e segurança operacional.
+
+**Entregas Planejadas:**
+- 🔄 Retries automáticos em falhas de API
+- 📊 Observabilidade (metrics, logs, traces)
+- 🚫 Limites de execução (timeout, rate limiting)
+- 🔒 Auditoria aprimorada
+- 🧪 Testes de resiliência
+
+**Status:** ⏳ PENDENTE
 **Objetivo:** Completar integração do Agent Runtime com mono-pi para análise automatizada de sessões.
 
 **Entregas:**
@@ -542,6 +555,70 @@ CLI (analyze) → Gateway (orchestrator) → API + WebSocket
 
 **Status:** ✅ COMPLETA
 **Testes:** Criados testes unitários e integração
+
+---
+
+### ✅ Fase 6.5: Autonomia dos Agentes (Refatoração)
+**Objetivo:** Transformar agentes em verdadeiramente autônomos, removendo lógica hardcoded de decisão.
+
+**Entregas:**
+- ✅ Removido método `decideAction()` hardcoded (baseado em iteração fixa)
+- ✅ Criado método `decideAutonomousAction()` que delega decisão à LLM
+- ✅ Implementado `buildAutonomousContext()` com contexto completo da sessão
+- ✅ Implementado `buildDecisionPrompt()` com contexto detalhado para a LLM
+- ✅ Implementado `parseStructuredDecision()` para extrair ação da resposta JSON
+- ✅ Atualizado `BASE_SYSTEM.md` com instruções de decisão autônoma
+- ✅ Adicionado tipo `StructuredAgentDecision` para resposta estruturada
+- ✅ Adicionado tipo `AutonomousAgentContext` para contexto completo
+- ✅ Simplificado `runIteration()` para usar única chamada à LLM
+- ✅ Atualizado testes para validar decisões estruturadas
+
+**Arquitetura Anterior:**
+```typescript
+// Hardcoded e não autônomo
+if (iteration < 3) return 'opinion';
+else if (iteration < 5) return 'message';
+else return 'vote';
+```
+
+**Arquitetura Nova:**
+```typescript
+// Autônomo e baseado em instruções
+const decision = await this.decideAutonomousAction();
+// LLM decide autonomamente baseada em:
+// - Informações disponíveis (documentos, opiniões, mensagens)
+// - Estado da colaboração
+// - Budget atual
+// - Progresso da análise
+```
+
+**Formato de Resposta Estruturada da LLM:**
+```json
+{
+  "action": "opinion" | "message" | "vote" | "wait",
+  "reasoning": "Por que escolhi essa ação baseado no estado atual",
+  "content": "...",  // se opinion/message
+  "target_agent": "debt|tech|market",  // se message
+  "confidence": 0.8,  // se opinion (0.0 - 1.0)
+  "verdict": "approve|reject|abstain",  // se vote
+  "wait_seconds": 5  // se wait
+}
+```
+
+**Decisões Autônomas da LLM:**
+- **POST OPINION**: Quando tem insights específicos, analisou documentos, tem confiança moderada-alta
+- **SEND MESSAGE**: Quando precisa de info de outro agente, questionar opinião, descobriu info relevante
+- **CAST VOTE**: Quando tem evidência suficiente, considerou todas as perspectivas
+- **WAIT**: Quando budget baixo, precisa de mais info, incerto
+
+**Componentes Atualizados:**
+- `apps/thesis-agent-runtime/src/agent-worker.ts` - Refatorado para autonomia
+- `apps/thesis-agent-runtime/src/types.ts` - Novos tipos adicionados
+- `packages/skills/BASE_SYSTEM.md` - Seção de decisão autônoma adicionada
+- `apps/thesis-agent-runtime/src/__tests__/agent-worker.test.ts` - Testes atualizados
+
+**Status:** ✅ COMPLETA
+**Testes:** Build passando, tipos validados
 
 ---
 
@@ -594,6 +671,12 @@ pnpm --filter @thesis/protocol build
   - **Perfil**: Descrição do papel específico (debt, tech, market)
   - **Skill.md**: Conteúdo especializado do agente
   - **Constraints**: Budget, tool policy, regras da sessão
+- **Autonomia dos Agentes (Fase 6.5):**
+  - Agentes decidem autonomamente qual ação tomar (opinion, message, vote, wait)
+  - LLM recebe contexto completo: hipótese, documentos, opiniões, mensagens, votos, budget
+  - Decisão é baseada em análise inteligente do estado da sessão
+  - Não existe mais lógica hardcoded baseada em iteração
+  - Resposta estruturada em JSON com ação, conteúdo, target, confidence, verdict
 
 ---
 
@@ -608,11 +691,14 @@ pnpm --filter @thesis/protocol build
 | Fase 4: Veredito + Ranking | ✅ COMPLETA | 2026-02-13 |
 | Fase 5: War Room | ✅ COMPLETA | 2026-02-13 |
 | Fase 6: Integração Agent Runtime | ✅ COMPLETA | 2026-02-15 |
+| Fase 6.5: Autonomia dos Agentes | ✅ COMPLETA | 2026-02-15 |
 | Fase 7: Hardening | ⏳ PENDENTE | --- |
 | Fase 8: Integrações Externas | ⏳ PENDENTE | --- |
+
+**Progresso:** 7/7 fases completas (87.5%)
 
 ---
 
 **Última Atualização:** 15 de Fevereiro de 2026
-**Versão:** 0.3.0
-**Status:** ✅ Fases 0-6 completas, Agent Runtime integrado
+**Versão:** 0.4.0
+**Status:** ✅ Fases 0-6.5 completas, Agentes verdadeiramente autônomos

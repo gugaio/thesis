@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import type { AgentTask } from '../types.js';
+import type { AgentTask, StructuredAgentDecision } from '../types.js';
 
 describe('AgentWorker', () => {
   it('should create with task data', () => {
@@ -88,5 +88,72 @@ describe('AgentWorker', () => {
 
     expect(task.iteration).toBe(11);
     expect(task.max_iterations).toBe(10);
+  });
+
+  describe('StructuredAgentDecision', () => {
+    it('should validate opinion decision structure', () => {
+      const decision: StructuredAgentDecision = {
+        action: 'opinion',
+        reasoning: 'Based on financial metrics, the burn rate is sustainable',
+        content: 'The company shows strong unit economics with 3x LTV/CAC',
+        confidence: 0.85,
+      };
+
+      expect(decision.action).toBe('opinion');
+      expect(decision.confidence).toBe(0.85);
+      expect(decision.reasoning).toBeDefined();
+      expect(decision.content).toBeDefined();
+    });
+
+    it('should validate message decision structure', () => {
+      const decision: StructuredAgentDecision = {
+        action: 'message',
+        reasoning: 'Need more information about technology stack',
+        content: 'What is the current technology stack used by the company?',
+        target_agent: 'tech',
+      };
+
+      expect(decision.action).toBe('message');
+      expect(decision.target_agent).toBe('tech');
+      expect(decision.reasoning).toBeDefined();
+      expect(decision.content).toBeDefined();
+    });
+
+    it('should validate vote decision structure', () => {
+      const decision: StructuredAgentDecision = {
+        action: 'vote',
+        reasoning: 'All financial metrics are strong, recommendation to approve',
+        verdict: 'approve',
+      };
+
+      expect(decision.action).toBe('vote');
+      expect(decision.verdict).toBe('approve');
+      expect(decision.reasoning).toBeDefined();
+    });
+
+    it('should validate wait decision structure', () => {
+      const decision: StructuredAgentDecision = {
+        action: 'wait',
+        reasoning: 'Waiting for more information from other agents',
+        wait_seconds: 5,
+      };
+
+      expect(decision.action).toBe('wait');
+      expect(decision.wait_seconds).toBe(5);
+      expect(decision.reasoning).toBeDefined();
+    });
+
+    it('should parse valid JSON decision', () => {
+      const jsonStr = `{
+        "action": "opinion",
+        "reasoning": "Test reasoning",
+        "content": "Test content",
+        "confidence": 0.8
+      }`;
+
+      const decision = JSON.parse(jsonStr) as StructuredAgentDecision;
+      expect(decision.action).toBe('opinion');
+      expect(decision.reasoning).toBe('Test reasoning');
+    });
   });
 });
