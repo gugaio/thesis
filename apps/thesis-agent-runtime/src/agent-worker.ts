@@ -8,6 +8,7 @@ import { composePrompt, buildConstraints, savePromptSnapshot } from '@thesis/pro
 import { ToolRegistry, BashToolExecutor } from '@thesis/tools';
 import { Agent } from '@mariozechner/pi-agent-core';
 import { getModel } from '@mariozechner/pi-ai';
+import { APIClient } from './api-client.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -32,6 +33,7 @@ export class AgentWorker {
   private toolRegistry: ToolRegistry;
   private toolExecutor: BashToolExecutor;
   private currentBudget: number;
+  private apiClient: APIClient;
 
   private autonomousContext: AutonomousAgentContext | null = null;
 
@@ -54,6 +56,7 @@ export class AgentWorker {
     this.toolRegistry = new ToolRegistry();
     this.toolExecutor = new BashToolExecutor();
     this.currentBudget = 100;
+    this.apiClient = new APIClient(this.apiUrl);
 
     log.debug(`[Worker ${this.taskId}] Created for profile: ${this.profile}`);
   }
@@ -69,7 +72,55 @@ export class AgentWorker {
     }
   }
 
-  private buildAutonomousContext(): AutonomousAgentContext {
+  private async buildAutonomousContext(): Promise<AutonomousAgentContext> {
+    const sessionData = await this.apiClient.getSession(this.sessionId);
+    const documents = await this.apiClient.getDocuments(this.sessionId);
+    const agents = await this.apiClient.getAgents(this.sessionId);
+    const opinions = await this.apiClient.getOpinions(this.sessionId);
+    const messages = await this.apiClient.getMessages(this.sessionId);
+    const votes = await this.apiClient.getVotes(this.sessionId);
+
+    const hypothesis = sessionData?.session.hypothesis.statement || '';
+    const hypothesisDescription = sessionData?.session.hypothesis.description || '';
+    const sessionStatus = sessionData?.session.status || 'active';
+    const finalVerdict = sessionData?.session.finalVerdict as 'approve' | 'reject' | undefined;
+
+    const otherAgents = agents
+      .filter(a => a.id !== this.taskId)
+      .map(a => ({
+        id: a.id,
+        profile: a.profile.role as AgentProfile,
+        is_active: a.isActive
+      }));
+
+    const agentMap = new Map<string, AgentProfile>();
+    agents.forEach(a => agentMap.set(a.id, a.profile.role as AgentProfile));
+
+    const previousOpinions = opinions
+      .filter(o => o.agentId !== this.taskId)
+      .map(o => ({
+        agent_id: o.agentId,
+        profile: agentMap.get(o.agentId) || 'debt',
+        content: o.content,
+        confidence: o.confidence
+      }));
+
+    const previousMessages = messages
+      .filter(m => m.fromAgentId !== this.taskId || m.toAgentId !== this.taskId)
+      .map(m => ({
+        from_agent: agentMap.get(m.fromAgentId) || 'debt',
+        to_agent: agentMap.get(m.toAgentId) || 'debt',
+        content: m.content
+      }));
+
+    const previousVotes = votes
+      .filter(v => v.agentId !== this.taskId)
+      .map(v => ({
+        agent_id: v.agentId,
+        profile: agentMap.get(v.agentId) || 'debt',
+        verdict: v.verdict as 'approve' | 'reject' | 'abstain'
+      }));
+
     return {
       session_id: this.sessionId,
       agent_id: this.taskId,
@@ -77,14 +128,20 @@ export class AgentWorker {
       iteration: this.iteration,
       max_iterations: this.maxIterations,
       budget: this.currentBudget,
-      hypothesis: '',
-      hypothesis_description: '',
-      documents: [],
-      other_agents: [],
-      previous_opinions: [],
-      previous_messages: [],
-      previous_votes: [],
-      session_status: 'active'
+      hypothesis,
+      hypothesis_description: hypothesisDescription,
+      documents: documents.map(d => ({
+        id: d.id,
+        name: d.name,
+        type: d.type,
+        content_hash: d.contentHash
+      })),
+      other_agents: otherAgents,
+      previous_opinions: previousOpinions,
+      previous_messages: previousMessages,
+      previous_votes: previousVotes,
+      session_status: sessionStatus as 'created' | 'active' | 'paused' | 'closed',
+      final_verdict: finalVerdict
     };
   }
 
@@ -297,7 +354,7 @@ Based on the context above, decide what action to take next. You must respond wi
   private async decideAutonomousAction(): Promise<StructuredAgentDecision> {
     log.debug(`[Worker ${this.taskId}] Making autonomous decision...`);
 
-    const context = this.buildAutonomousContext();
+    const context = await this.buildAutonomousContext();
     const prompt = await this.buildDecisionPrompt(context);
 
     try {
