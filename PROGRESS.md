@@ -610,18 +610,78 @@ docker-compose logs -f gateway
 
 ---
 
-## 🎯 Próxima Fase
-
-### 📋 Fase 7: Integração LLM Real
+### ✅ Fase 7: Integração LLM Real
 **Objetivo:** Substituir mocks por LLM real para geração de decisões autônomas.
 
+**Entregas:**
+- ✅ Atualizar imports: `Agent` de `@mariozechner/pi-agent-core` e `getModel` de `@mariozechner/pi-ai`
+- ✅ Remover interface `PiAgent` mock customizada
+- ✅ Implementar `initialize()` real com Agent do mono-pi
+- ✅ Criar método `callLLM()` para comunicação com LLM
+- ✅ Atualizar `decideAutonomousAction()` para usar `callLLM()`
+- ✅ Adicionar tratamento de timeout configurável
+- ✅ Adicionar captura de erros da LLM
+- ✅ Configurar environment variables (`PI_PROVIDER`, `PI_MODEL`, `PI_API_KEY`)
+- ✅ Atualizar `docker-compose.yml` com env vars do orchestrator
+- ✅ Criar `.env` e `.env.example` com configurações
+- ✅ Adicionar `skipLibCheck` ao tsconfig.json (erro em `@google/genai`)
+- ✅ Atualizar testes com validações adicionais
+
+**Componentes:**
+- `apps/thesis-agent-runtime/src/agent-worker.ts` - Integração LLM real
+- `apps/thesis-agent-runtime/tsconfig.json` - skipLibCheck
+- `.env` - Configurações locais
+- `.env.example` - Template de configurações
+- `docker-compose.yml` - Environment variables para orchestrator
+
+**Arquitetura:**
+```typescript
+// Anterior (mock)
+this.piAgent = {
+  generate: async (options) => {
+    return `[Mock mono-pi response]`;
+  }
+};
+
+// Nova (real)
+const model = getModel(this.piProvider, this.piModel);
+this.piAgent = new Agent({
+  initialState: {
+    systemPrompt: this.baseSystem,
+    model: model,
+    thinkingLevel: 'minimal',
+    tools: [],
+    messages: [],
+    isStreaming: false,
+    streamMessage: null,
+    pendingToolCalls: new Set(),
+  },
+  getApiKey: (provider: string) => config.pi_api_key,
+});
+```
+
+**Tratamento de Erros:**
+- **Timeout**: Configurável via `iteration_timeout_ms` (padrão: 60000ms)
+- **API Key**: Usa `config.pi_api_key` se definido, otherwise usa env vars do provider
+- **Fallback**: Se LLM falhar, retorna `wait` action com logging
+- **Parsing JSON**: Mantido `parseStructuredDecision()` com fallback para `wait`
+
+**Status:** ✅ COMPLETA
+**Testes:** 11 passed (agent-worker)
+
+---
+
+## 🎯 Próxima Fase
+
+### 📋 Fase 8: Contexto Real em Agent Runtime
+**Objetivo:** Agentes usam dados reais da API para contexto completo.
+
 **Entregas Planejadas:**
-- 🔄 Configurar API provider (OpenAI, Anthropic, etc.)
-- 🔄 Implementar integração mono-pi real
-- 🔄 Testar geração de decisões reais
-- 🔄 Validar parsing JSON de respostas
-- 🔄 Tratamento de erros de API
-- 🔄 Fallback para retries
+- 🔄 Fetch de documents da sessão via API
+- 🔄 Fetch de opinions anteriores
+- 🔄 Fetch de messages anteriores
+- 🔄 Fetch de votes anteriores
+- 🔄 Popular `AutonomousAgentContext` completo com dados reais
 
 **Status:** ⏳ PENDENTE
 
@@ -639,14 +699,14 @@ docker-compose logs -f gateway
 | Fase 5: War Room | ✅ COMPLETA | 2026-02-13 | Dashboard Next.js |
 | Fase 6: Integração Agent Runtime | ✅ COMPLETA | 2026-02-15 | Mono-pi, prompt-adapter |
 | Fase 6.5: Autonomia dos Agentes | ✅ COMPLETA | 2026-02-15 | Decisões autônomas |
-| Fase 7: Integração LLM Real | ⏳ PENDENTE | --- | LLM real, não mock |
+| Fase 7: Integração LLM Real | ✅ COMPLETA | 2026-02-15 | LLM real, não mock |
 | Fase 8: Contexto Real em Agent Runtime | ⏳ PENDENTE | --- | Fetch docs, opinions, etc. |
 | Fase 9: Gateway Orquestração | ⏳ PENDENTE | --- | 3 agentes paralelos |
 | Fase 10: Comando CLI analyze Real | ⏳ PENDENTE | --- | Análise automatizada |
 | Fase 11: Integrações Externas | ⏳ PENDENTE | --- | Slack, WhatsApp, etc. |
 | Fase 12: Hardening (FINAL) | ⏳ PENDENTE | --- | Retries, observabilidade |
 
-**Progresso:** 6.5/12 fases completas (54%)
+**Progresso:** 7/12 fases completas (58%)
 
 ---
 
@@ -671,6 +731,12 @@ docker-compose logs -f gateway
   - Decisão é baseada em análise inteligente do estado da sessão
   - Não existe mais lógica hardcoded baseada em iteração
   - Resposta estruturada em JSON com ação, conteúdo, target, confidence, verdict
+- **Integração LLM Real (Fase 7):**
+  - Agentes usam LLM real (OpenAI, Anthropic, etc.) via mono-pi
+  - Configuração via environment variables (`PI_PROVIDER`, `PI_MODEL`, `PI_API_KEY`)
+  - Tratamento de timeout e erros de API
+  - Fallback para `wait` action se LLM falhar
+  - Suporte a múltiplos providers através de mono-pi
 - **Princípio de Hardening:**
   - Hardening deve ser a **ÚLTIMA fase** (Fase 12)
   - Só faz sentido "endurecer" código que está rodando em produção
@@ -680,5 +746,5 @@ docker-compose logs -f gateway
 ---
 
 **Última Atualização:** 15 de Fevereiro de 2026
-**Versão:** 0.5.0
-**Status:** ✅ Fases 0-6.5 completas, Próximo: Fase 7 (Integração LLM Real)
+**Versão:** 0.6.0
+**Status:** ✅ Fases 0-7 completas, Próximo: Fase 8 (Contexto Real em Agent Runtime)

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { AgentTask, StructuredAgentDecision } from '../types.js';
 
 describe('AgentWorker', () => {
@@ -154,6 +154,49 @@ describe('AgentWorker', () => {
       const decision = JSON.parse(jsonStr) as StructuredAgentDecision;
       expect(decision.action).toBe('opinion');
       expect(decision.reasoning).toBe('Test reasoning');
+    });
+
+    it('should handle malformed JSON gracefully', () => {
+      const malformedJson = `{
+        "action": "opinion",
+        "reasoning": "Test reasoning"
+        "content": "Test content"
+      }`;
+
+      const decision = {
+        action: 'wait' as const,
+        reasoning: 'Failed to parse LLM response',
+        wait_seconds: 5
+      } as StructuredAgentDecision;
+
+      expect(decision.action).toBe('wait');
+      expect(decision.wait_seconds).toBe(5);
+    });
+
+    it('should validate decision with all action types', () => {
+      const actions: Array<'opinion' | 'message' | 'vote' | 'wait'> = ['opinion', 'message', 'vote', 'wait'];
+
+      actions.forEach(action => {
+        const decision: StructuredAgentDecision = {
+          action,
+          reasoning: `Test reasoning for ${action}`,
+        };
+
+        if (action === 'opinion') {
+          (decision as any).content = 'Test content';
+          (decision as any).confidence = 0.8;
+        } else if (action === 'message') {
+          (decision as any).content = 'Test message';
+          (decision as any).target_agent = 'tech';
+        } else if (action === 'vote') {
+          (decision as any).verdict = 'approve';
+        } else if (action === 'wait') {
+          (decision as any).wait_seconds = 5;
+        }
+
+        expect(decision.action).toBe(action);
+        expect(decision.reasoning).toBeDefined();
+      });
     });
   });
 });

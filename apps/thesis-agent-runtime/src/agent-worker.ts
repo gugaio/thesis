@@ -3,13 +3,11 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readFileSync } from 'fs';
 import type { WorkerMessage, AgentTask, AgentResult, AgentProfile, AutonomousAgentContext, StructuredAgentDecision } from './types.js';
-import { log } from './config.js';
+import { log, config } from './config.js';
 import { composePrompt, buildConstraints, savePromptSnapshot } from '@thesis/prompt-adapter';
 import { ToolRegistry, BashToolExecutor } from '@thesis/tools';
-
-interface PiAgent {
-  generate(options: { prompt: string; maxTokens: number; temperature: number }): Promise<string>;
-}
+import { Agent } from '@mariozechner/pi-agent-core';
+import { getModel } from '@mariozechner/pi-ai';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -30,7 +28,7 @@ export class AgentWorker {
   private baseSystem: string;
   private soul: string;
 
-  private piAgent: PiAgent | null = null;
+  private piAgent: Agent | null = null;
   private toolRegistry: ToolRegistry;
   private toolExecutor: BashToolExecutor;
   private currentBudget: number;
@@ -206,21 +204,85 @@ Based on the context above, decide what action to take next. You must respond wi
   }
 
   async initialize(): Promise<void> {
-    log.debug(`[Worker ${this.taskId}] Initializing mono-pi agent...`);
+    log.debug(`[Worker ${this.taskId}] Initializing mono-pi agent with provider: ${this.piProvider}, model: ${this.piModel}`);
 
     try {
-      this.piAgent = {
-        generate: async (options) => {
-          log.debug(`[Worker ${this.taskId}] Generating with mono-pi: ${options.prompt.substring(0, 50)}...`);
-          return `[Mock mono-pi response] This is a generated response for ${this.profile} agent.`;
-        }
-      };
+      if (!config.pi_api_key) {
+        log.warn(`[Worker ${this.taskId}] No PI_API_KEY configured, will use environment variables or default config`);
+      }
 
-      log.debug(`[Worker ${this.taskId}] Mono-pi agent initialized`);
+      const model = getModel(this.piProvider as any, this.piModel);
+
+      this.piAgent = new Agent({
+        initialState: {
+          systemPrompt: this.baseSystem,
+          model: model,
+          thinkingLevel: 'minimal',
+          tools: [],
+          messages: [],
+          isStreaming: false,
+          streamMessage: null,
+          pendingToolCalls: new Set(),
+        },
+        getApiKey: (provider: string) => {
+          if (config.pi_api_key) {
+            return config.pi_api_key;
+          }
+          return undefined;
+        },
+      });
+
+      log.debug(`[Worker ${this.taskId}] Mono-pi agent initialized with model: ${model.provider}/${model.id}`);
     } catch (error) {
       log.error(`[Worker ${this.taskId}] Failed to initialize mono-pi:`, error);
       throw error;
     }
+  }
+
+  private async callLLM(prompt: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        log.warn(`[Worker ${this.taskId}] LLM call timeout after ${this.timeoutMs}ms`);
+        this.piAgent?.abort();
+        reject(new Error('LLM call timeout'));
+      }, this.timeoutMs);
+
+      const unsubscribe = this.piAgent?.subscribe((event) => {
+        if (event.type === 'agent_end') {
+          clearTimeout(timeout);
+          unsubscribe?.();
+
+          if (event.messages.length === 0) {
+            reject(new Error('No messages in response'));
+            return;
+          }
+
+          const lastMessage = event.messages[event.messages.length - 1];
+          if (lastMessage && lastMessage.role === 'assistant') {
+            if ((lastMessage as any).errorMessage) {
+              log.error(`[Worker ${this.taskId}] LLM error: ${(lastMessage as any).errorMessage}`);
+              reject(new Error((lastMessage as any).errorMessage));
+              return;
+            }
+            const text = lastMessage.content
+              .filter((b: any) => b.type === 'text')
+              .map((b: any) => b.text)
+              .join('');
+            log.debug(`[Worker ${this.taskId}] LLM response received: ${text.substring(0, 100)}...`);
+            resolve(text);
+          } else {
+            reject(new Error('No assistant message in response'));
+          }
+        }
+      });
+
+      this.piAgent?.prompt(prompt).catch((error) => {
+        clearTimeout(timeout);
+        unsubscribe?.();
+        log.error(`[Worker ${this.taskId}] LLM prompt error:`, error);
+        reject(error);
+      });
+    });
   }
 
   private getProfileDescription(profile: AgentProfile): string {
@@ -239,11 +301,7 @@ Based on the context above, decide what action to take next. You must respond wi
     const prompt = await this.buildDecisionPrompt(context);
 
     try {
-      const response = await this.piAgent!.generate({
-        prompt,
-        maxTokens: 800,
-        temperature: 0.7
-      });
+      const response = await this.callLLM(prompt);
 
       const decision = this.parseStructuredDecision(response);
       log.debug(`[Worker ${this.taskId}] Autonomously decided: ${decision.action} - ${decision.reasoning.substring(0, 100)}...`);

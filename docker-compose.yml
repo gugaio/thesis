@@ -63,12 +63,15 @@ services:
       - WS_URL=ws://api:4000
       - MAX_CONCURRENT_AGENTS=3
       - MAX_ITERATIONS=10
-      - ITERATION_TIMEOUT=30000
+      - ITERATION_TIMEOUT=60000
+      - PI_PROVIDER=openai
+      - PI_MODEL=gpt-4o-mini
+      - PI_API_KEY=${PI_API_KEY}
+      - LOG_LEVEL=debug
     networks:
       - thesis-network
     depends_on:
       - api
-      - gateway
 
   cli:
     build:
