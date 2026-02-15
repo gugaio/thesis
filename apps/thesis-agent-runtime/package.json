@@ -16,6 +16,9 @@
   "dependencies": {
     "@mariozechner/pi-agent-core": "0.50.7",
     "@mariozechner/pi-ai": "0.50.7",
+    "@thesis/prompt-adapter": "workspace:*",
+    "@thesis/tools": "workspace:*",
+    "@thesis/protocol": "workspace:*",
     "dotenv": "^17.2.3",
     "ws": "^8.19.0"
   },

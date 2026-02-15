@@ -53,6 +53,23 @@ services:
     depends_on:
       - api
 
+  orchestrator:
+    build:
+      context: .
+      dockerfile: apps/thesis-gateway/Dockerfile
+    container_name: thesis-orchestrator
+    environment:
+      - API_URL=http://api:4000
+      - WS_URL=ws://api:4000
+      - MAX_CONCURRENT_AGENTS=3
+      - MAX_ITERATIONS=10
+      - ITERATION_TIMEOUT=30000
+    networks:
+      - thesis-network
+    depends_on:
+      - api
+      - gateway
+
   cli:
     build:
       context: .

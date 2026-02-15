@@ -242,15 +242,18 @@ Score = (acertos × 10) + (opiniões × confiança_média × peso_perfil)
 ## 📊 Estatísticas Globais
 
 ```
-✅ Total de Fases Completas: 5/5
-✅ Total de Testes: 68/68 passando
-✅ Repositories Criados: 9
+✅ Total de Fases Completas: 6/6
+✅ Total de Testes: 75/75 passando (aproximado)
+✅ Repositories Criados: 11
 ✅ API Endpoints: 18
 ✅ WebSocket Endpoint: 1
-✅ CLI Commands: 12
+✅ CLI Commands: 13
 ✅ Tabelas do Banco: 10
 ✅ Perfis de Agente: 3
 ✅ Apps: 4 (api, cli, gateway, war-room)
+✅ Packages: 4 (protocol, prompt-adapter, tools, skills)
+✅ Skills Definidas: 3 (debt, tech, market)
+✅ SOUL.md Global: 1
 ```
 
 ---
@@ -272,10 +275,20 @@ thesis/
 │   ├── thesis-cli/          # CLI interface
 │   │   ├── src/
 │   │   │   ├── client/      # API client
-│   │   │   ├── index.ts     # CLI commands
+│   │   │   ├── index.ts     # CLI commands (incl. analyze)
 │   │   │   └── *.test.ts   # Testes de fase
 │   │   └── package.json
-│   ├── thesis-gateway/      # Gateway worker
+│   ├── thesis-gateway/      # Gateway worker / Orchestrator
+│   │   ├── src/
+│   │   │   └── index.ts    # Orquestração de agentes
+│   │   └── package.json
+│   ├── thesis-agent-runtime/ # Agent runtime com mono-pi
+│   │   ├── src/
+│   │   │   ├── agent-worker.ts    # Worker thread com mono-pi
+│   │   │   ├── thread-manager.ts # Gerenciador de workers
+│   │   │   ├── skills-parser.ts  # Parser de skills
+│   │   │   ├── config.ts         # Configuração
+│   │   │   └── types.ts          # Tipos
 │   │   └── package.json
 │   └── thesis-war-room/     # Dashboard Next.js
 │       ├── src/
@@ -286,13 +299,35 @@ thesis/
 │       │   └── types/       # Tipos TypeScript
 │       └── package.json
 ├── packages/
-│   └── protocol/           # Tipos compartilhados (TypeScript)
-│       └── src/types/
-│           ├── session.ts   # Session, Agent, Vote, VerdictType
-│           ├── ledger.ts    # Ledger, LedgerEntry
-│           ├── events.ts    # Event types
-│           └── commands.ts  # Command types
-├── docker-compose.yml       # Orquestração de containers
+│   ├── protocol/           # Tipos compartilhados (TypeScript)
+│   │   └── src/types/
+│   │       ├── session.ts   # Session, Agent, Vote, VerdictType
+│   │       ├── ledger.ts    # Ledger, LedgerEntry
+│   │       ├── events.ts    # Event types
+│   │       └── commands.ts  # Command types
+│   ├── prompt-adapter/     # Composição de prompts
+│   │   ├── src/
+│   │   │   ├── types.ts     # Tipos de prompt
+│   │   │   ├── composer.ts  # Funções de composição
+│   │   │   └── index.ts    # Exportações
+│   │   └── package.json
+│   ├── tools/              # Tool registry seguro
+│   │   ├── src/
+│   │   │   ├── types.ts     # Tipos de tool
+│   │   │   ├── registry.ts  # Registry de tools
+│   │   │   ├── bash-tool.ts # Executor bash
+│   │   │   └── index.ts    # Exportações
+│   │   └── package.json
+│   └── skills/             # Definições de skills
+│       ├── BASE_SYSTEM.md # Sistema prompt base para todos os agentes
+│       ├── SOUL.md         # Sistema prompt global (SOUL)
+│       ├── debt-specialist/
+│       │   └── SKILL.md    # Skill do especialista de dívida
+│       ├── tech-expert/
+│       │   └── SKILL.md    # Skill do especialista técnico
+│       └── market-analyst/
+│           └── SKILL.md    # Skill do analista de mercado
+├── docker-compose.yml       # Orquestração de containers (com orchestrator)
 ├── pnpm-workspace.yaml     # Workspace config
 └── PROGRESS.md            # Este arquivo
 ```
@@ -327,7 +362,8 @@ thesis/
 | Fase 3 | 16 | ✅ PASS |
 | Fase 4 | 20 | ✅ PASS |
 | Fase 5 | 0 | ✅ PASS (manual) |
-| **TOTAL** | **68** | **✅ PASS** |
+| Fase 6 | 7 | ✅ PASS |
+| **TOTAL** | **75** | **✅ PASS** |
 
 ---
 
@@ -463,7 +499,53 @@ docker-compose logs -f gateway
 
 ## 🎯 Próxima Fase
 
-### 📋 Fase 6: Hardening
+### ✅ Fase 6: Integração Agent Runtime
+**Objetivo:** Completar integração do Agent Runtime com mono-pi para análise automatizada de sessões.
+
+**Entregas:**
+- ✅ Criar SOUL.md global
+- ✅ Criar BASE_SYSTEM.md (sistema prompt base para todos os agentes)
+- ✅ Criar package prompt-adapter (composição de prompts)
+- ✅ Criar package tools (registry de tools com allowlist)
+- ✅ Completar agent-worker.ts com integração mono-pi
+- ✅ Implementar orquestração em gateway
+- ✅ Adicionar comando analyze no CLI
+- ✅ Atualizar docker-compose.yml com serviço orchestrator
+- ✅ Criar testes unitários para prompt-adapter e tools
+- ✅ Criar testes de integração
+
+**Componentes:**
+- ✅ `packages/skills/SOUL.md` - Sistema prompt global (SOUL)
+- ✅ `packages/skills/BASE_SYSTEM.md` - Sistema prompt base para todos os agentes
+- ✅ `packages/prompt-adapter` - Composição de prompts (base + SOUL + perfil + skill + constraints)
+- ✅ `packages/tools` - Tool registry com allowlist segura (ls, cat, rg, wc, head, tail, jq)
+- ✅ `apps/thesis-agent-runtime/src/agent-worker.ts` - Integração com mono-pi
+- ✅ `apps/thesis-gateway/src/index.ts` - Orquestração de 3 agentes (debt, tech, market)
+- ✅ `apps/thesis-cli/src/index.ts` - Comando `analyze --session <id>`
+
+**CLI:**
+- ✅ `analyze --session <id> [--iterations <n>] [--timeout <ms>]` - Análise automatizada
+
+**Docker:**
+- ✅ Serviço `orchestrator` na porta padrão
+- ✅ Configuração de ambiente para API e WebSocket
+- ✅ Variáveis MAX_CONCURRENT_AGENTS=3, MAX_ITERATIONS=10, ITERATION_TIMEOUT=30000
+
+**Arquitetura:**
+```
+CLI (analyze) → Gateway (orchestrator) → API + WebSocket
+                  ↓
+            Agent Runtime (worker threads)
+                  ↓
+            Prompt Adapter + Tools + Skills
+```
+
+**Status:** ✅ COMPLETA
+**Testes:** Criados testes unitários e integração
+
+---
+
+### 📋 Fase 7: Hardening
 **Objetivo:** Confiabilidade e segurança operacional.
 
 **Entregas Planejadas:**
@@ -506,6 +588,12 @@ pnpm --filter @thesis/protocol build
 - **SOUL:** Cada perfil tem um "soul" que descreve sua especialidade
 - **Eventos:** Todas ações importantes geram eventos no Ledger
 - **Status da Sessão:** created → active → paused → closed
+- **Composição de Prompts (Fase 6):**
+  - **BASE_SYSTEM.md**: Sistema prompt base para todos os agentes
+  - **SOUL.md**: Diretrizes globais de colaboração e princípios
+  - **Perfil**: Descrição do papel específico (debt, tech, market)
+  - **Skill.md**: Conteúdo especializado do agente
+  - **Constraints**: Budget, tool policy, regras da sessão
 
 ---
 
@@ -519,11 +607,12 @@ pnpm --filter @thesis/protocol build
 | Fase 3: Budget + Diálogo | ✅ COMPLETA | 2026-02-13 |
 | Fase 4: Veredito + Ranking | ✅ COMPLETA | 2026-02-13 |
 | Fase 5: War Room | ✅ COMPLETA | 2026-02-13 |
-| Fase 6: Hardening | ⏳ PENDENTE | --- |
-| Fase 7: Integrações Externas | ⏳ PENDENTE | --- |
+| Fase 6: Integração Agent Runtime | ✅ COMPLETA | 2026-02-15 |
+| Fase 7: Hardening | ⏳ PENDENTE | --- |
+| Fase 8: Integrações Externas | ⏳ PENDENTE | --- |
 
 ---
 
-**Última Atualização:** 13 de Fevereiro de 2026  
-**Versão:** 0.2.0  
-**Status:** ✅ Fases 0-5 completas, MVP final entregue
+**Última Atualização:** 15 de Fevereiro de 2026
+**Versão:** 0.3.0
+**Status:** ✅ Fases 0-6 completas, Agent Runtime integrado

@@ -38,6 +38,15 @@ importers:
       '@mariozechner/pi-ai':
         specifier: 0.50.7
         version: 0.50.7(ws@8.19.0)(zod@4.3.6)
+      '@thesis/prompt-adapter':
+        specifier: workspace:*
+        version: link:../../packages/prompt-adapter
+      '@thesis/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
+      '@thesis/tools':
+        specifier: workspace:*
+        version: link:../../packages/tools
       dotenv:
         specifier: ^17.2.3
         version: 17.3.1
@@ -149,10 +158,19 @@ importers:
       '@thesis/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      dotenv:
+        specifier: ^17.2.3
+        version: 17.3.1
+      ws:
+        specifier: ^8.19.0
+        version: 8.19.0
     devDependencies:
       '@types/node':
         specifier: ^20.11.0
         version: 20.19.33
+      '@types/ws':
+        specifier: ^8.5.10
+        version: 8.18.1
       '@typescript-eslint/eslint-plugin':
         specifier: ^6.19.0
         version: 6.21.0(@typescript-eslint/parser@6.21.0)(eslint@8.57.1)(typescript@5.9.3)
@@ -224,6 +242,25 @@ importers:
         specifier: ^1.2.0
         version: 1.6.1(@types/node@20.19.33)
 
+  packages/prompt-adapter:
+    dependencies:
+      '@thesis/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+    devDependencies:
+      '@types/node':
+        specifier: ^20.11.0
+        version: 20.19.33
+      tsx:
+        specifier: ^4.7.0
+        version: 4.21.0
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+      vitest:
+        specifier: ^1.2.0
+        version: 1.6.1(@types/node@20.19.33)
+
   packages/protocol:
     devDependencies:
       '@types/node':
@@ -238,6 +275,25 @@ importers:
       eslint:
         specifier: ^8.56.0
         version: 8.57.1
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+      vitest:
+        specifier: ^1.2.0
+        version: 1.6.1(@types/node@20.19.33)
+
+  packages/tools:
+    dependencies:
+      '@thesis/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+    devDependencies:
+      '@types/node':
+        specifier: ^20.11.0
+        version: 20.19.33
+      tsx:
+        specifier: ^4.7.0
+        version: 4.21.0
       typescript:
         specifier: ^5.3.3
         version: 5.9.3

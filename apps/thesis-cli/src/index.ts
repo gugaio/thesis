@@ -563,4 +563,71 @@ program
     }
   });
 
+program
+  .command('analyze')
+  .description('Run automated multi-agent analysis on a session')
+  .option('--session <id>', 'Session ID to analyze')
+  .option('--iterations <number>', 'Maximum iterations per agent', '10')
+  .option('--timeout <ms>', 'Iteration timeout in milliseconds', '30000')
+  .action(async (options) => {
+    try {
+      if (!options.session) {
+        console.error('Error: --session is required');
+        process.exit(1);
+      }
+
+      const iterations = parseInt(options.iterations, 10);
+      if (isNaN(iterations) || iterations < 1) {
+        console.error('Error: --iterations must be a positive number');
+        process.exit(1);
+      }
+
+      const timeout = parseInt(options.timeout, 10);
+      if (isNaN(timeout) || timeout < 1000) {
+        console.error('Error: --timeout must be at least 1000ms');
+        process.exit(1);
+      }
+
+      console.log('🚀 Starting automated multi-agent analysis...');
+      console.log(`Session ID: ${options.session}`);
+      console.log(`Max iterations: ${iterations}`);
+      console.log(`Timeout: ${timeout}ms`);
+      console.log('');
+
+      const client = new ApiClient(process.env.API_URL);
+
+      const session = await client.getSession(options.session);
+      if (session.session.status === 'closed') {
+        console.error('Error: Session is already closed');
+        process.exit(1);
+      }
+
+      console.log('✅ Session found and active');
+      console.log('');
+
+      console.log('🏃 Running analysis...');
+      console.log('This will start the gateway orchestrator to analyze the session.');
+      console.log('The gateway will create 3 agents (debt, tech, market) and run them for multiple iterations.');
+      console.log('');
+
+      console.log('To run the gateway manually, use:');
+      console.log(`  cd apps/thesis-gateway && node dist/index.js ${options.session}`);
+      console.log('');
+      console.log('Or use the docker-compose orchestrator service:');
+      console.log(`  docker-compose up orchestrator`);
+      console.log('');
+
+      console.log('⚠️  Note: The gateway needs to be built first:');
+      console.log('  pnpm --filter @thesis/gateway build');
+      console.log('');
+
+      console.log('📊 Once the analysis is complete, you can:');
+      console.log(`  thesis status --session ${options.session}`);
+      console.log(`  thesis generate-report --session ${options.session} --output report.json`);
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
   program.parse();
