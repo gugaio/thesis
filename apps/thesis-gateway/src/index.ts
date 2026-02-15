@@ -3,6 +3,7 @@ import { WebSocket } from 'ws';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readFileSync } from 'fs';
+import { AgentWorkerManager } from './worker-manager.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -11,27 +12,42 @@ dotenv.config();
 
 const API_URL = process.env.API_URL || 'http://localhost:4000';
 const WS_URL = process.env.WS_URL || 'ws://localhost:4000';
-const MAX_CONCURRENT_AGENTS = parseInt(process.env.MAX_CONCURRENT_AGENTS || '3', 10);
 const MAX_ITERATIONS = parseInt(process.env.MAX_ITERATIONS || '10', 10);
-const ITERATION_TIMEOUT = parseInt(process.env.ITERATION_TIMEOUT || '30000', 10);
+const ITERATION_TIMEOUT = parseInt(process.env.ITERATION_TIMEOUT || '60000', 10);
+const ITERATION_DELAY = parseInt(process.env.ITERATION_DELAY || '2000', 10);
+const PI_PROVIDER = process.env.PI_PROVIDER || 'openai';
+const PI_MODEL = process.env.PI_MODEL || 'gpt-4o-mini';
 
 interface SessionData {
   id: string;
-  hypothesis: string;
   status: string;
-  agents: any[];
+  hypothesis: {
+    statement: string;
+    description?: string;
+  };
+  finalVerdict?: string;
 }
 
-interface AgentProfile {
+interface AgentInfo {
   id: string;
-  role: string;
-  name: string;
+  profile: {
+    role: string;
+    name: string;
+  };
 }
 
 class GatewayOrchestrator {
   private ws: WebSocket | null = null;
   private sessionData: SessionData | null = null;
   private running = false;
+  private workerManager: AgentWorkerManager;
+  private agentIds: Map<string, string> = new Map();
+  private votes: Set<string> = new Set();
+  private currentIteration = 0;
+
+  constructor() {
+    this.workerManager = new AgentWorkerManager(3);
+  }
 
   async start(sessionId: string): Promise<void> {
     console.log(`🚀 THESIS Gateway starting analysis for session: ${sessionId}`);
@@ -41,7 +57,13 @@ class GatewayOrchestrator {
       throw new Error(`Session ${sessionId} not found`);
     }
 
+    console.log(`📝 Session hypothesis: ${this.sessionData.hypothesis.statement}`);
+    if (this.sessionData.hypothesis.description) {
+      console.log(`📝 Description: ${this.sessionData.hypothesis.description}`);
+    }
+
     await this.connectWebSocket();
+    await this.registerAgents(sessionId);
     await this.runAnalysis(sessionId);
   }
 
@@ -51,8 +73,13 @@ class GatewayOrchestrator {
       if (!response.ok) {
         throw new Error(`Failed to fetch session: ${response.statusText}`);
       }
-      const session = await response.json() as SessionData;
-      return session;
+      const data = await response.json() as any;
+      return {
+        id: data.session.id,
+        status: data.session.status,
+        hypothesis: data.hypothesis,
+        finalVerdict: data.session.finalVerdict,
+      };
     } catch (error) {
       console.error('❌ Error fetching session:', error);
       return null;
@@ -86,196 +113,239 @@ class GatewayOrchestrator {
     });
   }
 
+  private async registerAgents(sessionId: string): Promise<void> {
+    console.log('\n🤖 Registering agents...');
+
+    const profiles: Array<{ role: string; name: string }> = [
+      { role: 'debt', name: 'Debt Specialist' },
+      { role: 'tech', name: 'Tech Expert' },
+      { role: 'market', name: 'Market Analyst' }
+    ];
+
+    for (const profile of profiles) {
+      try {
+        const response = await fetch(`${API_URL}/sessions/${sessionId}/agents`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            profileRole: profile.role,
+            initialCredits: 100
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to register ${profile.role} agent: ${response.statusText}`);
+        }
+
+        const result = await response.json() as AgentInfo;
+        this.agentIds.set(profile.role, result.id);
+        console.log(`✅ Registered ${profile.name} (ID: ${result.id})`);
+      } catch (error) {
+        console.error(`❌ Error registering ${profile.role} agent:`, error);
+        throw error;
+      }
+    }
+  }
+
   private async runAnalysis(sessionId: string): Promise<void> {
-    console.log(`🏃 Running analysis for session: ${sessionId}`);
+    console.log('\n🏃 Running analysis for session:', sessionId);
     this.running = true;
 
-    const profiles = this.getAgentProfiles();
+    for (let i = 0; i < MAX_ITERATIONS && this.running && !this.shouldStop(); i++) {
+      this.currentIteration = i + 1;
+      console.log(`\n🔄 Iteration ${this.currentIteration}/${MAX_ITERATIONS}`);
 
-    console.log(`📋 Creating ${profiles.length} agents: ${profiles.map(p => p.role).join(', ')}`);
+      const tasks = this.createAgentTasks(sessionId, this.currentIteration);
 
-    for (let i = 0; i < MAX_ITERATIONS && this.running; i++) {
-      console.log(`\n🔄 Iteration ${i + 1}/${MAX_ITERATIONS}`);
+      console.log(`📋 Running ${tasks.length} agents in parallel...`);
 
-      for (const profile of profiles) {
-        if (!this.running) break;
-
-        try {
-          await this.runAgentIteration(sessionId, profile, i + 1);
-        } catch (error) {
-          console.error(`❌ Error running ${profile.role} agent:`, error);
-        }
+      try {
+        const results = await Promise.all(tasks.map(task => this.workerManager.runAgentTask(task)));
+        await this.processResults(results, sessionId);
+      } catch (error) {
+        console.error('❌ Error running iteration:', error);
       }
 
-      await this.sleep(2000);
+      console.log(`\n📊 Stats:`, this.workerManager.getStats());
+
+      if (this.shouldStop()) {
+        console.log('\n🛑 Stopping conditions met');
+        break;
+      }
+
+      await this.sleep(ITERATION_DELAY);
     }
 
     console.log('\n✅ Analysis completed');
     await this.closeSession(sessionId);
   }
 
-  private getAgentProfiles(): AgentProfile[] {
-    return [
-      { id: 'debt-agent-1', role: 'debt', name: 'Debt Specialist' },
-      { id: 'tech-agent-1', role: 'tech', name: 'Tech Expert' },
-      { id: 'market-agent-1', role: 'market', name: 'Market Analyst' }
-    ];
+  private createAgentTasks(sessionId: string, iteration: number) {
+    const profiles = ['debt', 'tech', 'market'] as const;
+
+    return profiles.map(profile => ({
+      session_id: sessionId,
+      agent_id: this.agentIds.get(profile)!,
+      profile_role: profile,
+      skill_path: join(__dirname, '../../../packages/skills', 
+        profile === 'debt' ? 'debt-specialist' : 
+        profile === 'tech' ? 'tech-expert' : 'market-analyst',
+        'SKILL.md'
+      ),
+      skill_content: '',
+      iteration,
+      max_iterations: MAX_ITERATIONS,
+      api_url: API_URL,
+      ws_url: WS_URL,
+      pi_provider: PI_PROVIDER,
+      pi_model: PI_MODEL,
+      iteration_timeout_ms: ITERATION_TIMEOUT,
+    }));
   }
 
-  private async runAgentIteration(
-    sessionId: string,
-    profile: AgentProfile,
-    iteration: number
-  ): Promise<void> {
-    console.log(`  🤖 Running ${profile.role} agent (iteration ${iteration})`);
+  private async processResults(results: any[], sessionId: string) {
+    for (const result of results) {
+      if (!result) continue;
 
-    const skillPath = join(dirname(__dirname), '../../packages/skills', `${profile.role === 'debt' ? 'debt-specialist' : profile.role === 'tech' ? 'tech-expert' : 'market-analyst'}/SKILL.md`);
-    const skillContent = readFileSync(skillPath, 'utf-8');
+      console.log(`  🤖 ${result.agent_id}: ${result.action} - ${result.reasoning?.substring(0, 50) || ''}...`);
 
-    const action = this.decideAction(iteration);
-
-    switch (action) {
-      case 'opinion':
-        await this.postOpinion(sessionId, profile, skillContent);
-        break;
-      case 'message':
-        await this.postMessage(sessionId, profile, skillContent);
-        break;
-      case 'vote':
-        await this.castVote(sessionId, profile, skillContent);
-        break;
-      default:
-        console.log(`  ⏸️  ${profile.role} agent waiting`);
+      switch (result.action) {
+        case 'opinion':
+          await this.postOpinion(sessionId, result);
+          break;
+        case 'message':
+          await this.postMessage(sessionId, result);
+          break;
+        case 'vote':
+          await this.castVote(sessionId, result);
+          break;
+        case 'wait':
+          console.log(`    ⏸️  ${result.agent_id} waiting: ${result.reasoning}`);
+          break;
+      }
     }
   }
 
-  private decideAction(iteration: number): 'opinion' | 'message' | 'vote' | 'wait' {
-    if (iteration < 3) return 'opinion';
-    if (iteration < 5) return 'message';
-    if (iteration < 7) return 'opinion';
-    if (iteration < MAX_ITERATIONS) return 'vote';
-    return 'wait';
-  }
-
-  private async postOpinion(
-    sessionId: string,
-    profile: AgentProfile,
-    skillContent: string
-  ): Promise<void> {
-    console.log(`    💭 Posting opinion from ${profile.role}`);
-
-    const confidence = 0.7 + Math.random() * 0.2;
-    const content = this.generateOpinionContent(profile, skillContent);
-
+  private async postOpinion(sessionId: string, result: any) {
     try {
       const response = await fetch(`${API_URL}/sessions/${sessionId}/opinions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          agent_id: profile.id,
-          content,
-          confidence
+          agentId: result.agent_id,
+          content: result.content,
+          confidence: result.confidence
         })
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to post opinion: ${response.statusText}`);
+        console.error(`    ❌ Failed to post opinion: ${response.statusText}`);
+        return;
       }
 
-      console.log(`    ✅ Opinion posted from ${profile.role}`);
+      console.log(`    ✅ Opinion posted`);
     } catch (error) {
-      console.error(`    ❌ Error posting opinion from ${profile.role}:`, error);
+      console.error(`    ❌ Error posting opinion:`, error);
     }
   }
 
-  private async postMessage(
-    sessionId: string,
-    profile: AgentProfile,
-    skillContent: string
-  ): Promise<void> {
-    console.log(`    📨 Posting message from ${profile.role}`);
-
-    const targetAgent = this.getRandomOtherAgent(profile.role);
-    const content = `Question from ${profile.name} to ${targetAgent.name}: What are your thoughts on the current metrics?`;
-
+  private async postMessage(sessionId: string, result: any) {
     try {
+      const targetProfile = this.getProfileFromAgentId(result.target_agent);
+      if (!targetProfile) {
+        console.error(`    ❌ Unknown target profile: ${result.target_agent}`);
+        return;
+      }
+
       const response = await fetch(`${API_URL}/sessions/${sessionId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          from_agent_id: profile.id,
-          to_agent_id: targetAgent.id,
-          content
+          fromAgentId: result.agent_id,
+          toAgentId: this.agentIds.get(result.target_agent),
+          content: result.content
         })
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to post message: ${response.statusText}`);
+        console.error(`    ❌ Failed to post message: ${response.statusText}`);
+        return;
       }
 
-      console.log(`    ✅ Message posted from ${profile.role} to ${targetAgent.role}`);
+      console.log(`    ✅ Message sent to ${result.target_agent}`);
     } catch (error) {
-      console.error(`    ❌ Error posting message from ${profile.role}:`, error);
+      console.error(`    ❌ Error posting message:`, error);
     }
   }
 
-  private async castVote(
-    sessionId: string,
-    profile: AgentProfile,
-    skillContent: string
-  ): Promise<void> {
-    console.log(`    🗳️  Casting vote from ${profile.role}`);
-
-    const verdicts = ['approve', 'reject', 'abstain'];
-    const verdict = verdicts[Math.floor(Math.random() * verdicts.length)] as 'approve' | 'reject' | 'abstain';
-    const rationale = `Based on ${profile.name} analysis.`;
-
+  private async castVote(sessionId: string, result: any) {
     try {
       const response = await fetch(`${API_URL}/sessions/${sessionId}/votes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          agent_id: profile.id,
-          verdict,
-          rationale
+          agentId: result.agent_id,
+          verdict: result.verdict,
+          rationale: result.reasoning || `Analysis iteration ${this.currentIteration}`
         })
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to cast vote: ${response.statusText}`);
+        console.error(`    ❌ Failed to cast vote: ${response.statusText}`);
+        return;
       }
 
-      console.log(`    ✅ Vote cast from ${profile.role}: ${verdict}`);
+      this.votes.add(result.agent_id);
+      console.log(`    ✅ Vote cast: ${result.verdict}`);
     } catch (error) {
-      console.error(`    ❌ Error casting vote from ${profile.role}:`, error);
+      console.error(`    ❌ Error casting vote:`, error);
     }
   }
 
-  private generateOpinionContent(profile: AgentProfile, skillContent: string): string {
-    const opinions = [
-      `Based on my analysis as a ${profile.name}, I see several key metrics that warrant attention.`,
-      `From a ${profile.name} perspective, this opportunity shows promise with some concerns.`,
-      `My ${profile.name} analysis indicates moderate risk with potential upside.`
-    ];
-    return opinions[Math.floor(Math.random() * opinions.length)];
+  private getProfileFromAgentId(profile: string): string | null {
+    for (const [role, agentId] of this.agentIds.entries()) {
+      if (agentId === profile) return role;
+    }
+    return null;
   }
 
-  private getRandomOtherAgent(role: string): AgentProfile {
-    const allProfiles = this.getAgentProfiles();
-    const otherProfiles = allProfiles.filter(p => p.role !== role);
-    return otherProfiles[Math.floor(Math.random() * otherProfiles.length)];
+  private shouldStop(): boolean {
+    const allVoted = this.votes.size === 3;
+    const maxReached = this.currentIteration >= MAX_ITERATIONS;
+
+    if (allVoted) {
+      console.log('🏁 All agents have voted');
+      return true;
+    }
+
+    if (maxReached) {
+      console.log('🏁 Maximum iterations reached');
+      return true;
+    }
+
+    return false;
   }
 
   private async closeSession(sessionId: string): Promise<void> {
+    if (this.votes.size === 0) {
+      console.log('⚠️  No votes cast, skipping session close');
+      return;
+    }
+
     console.log(`\n🏁 Closing session: ${sessionId}`);
+
+    const votes = Array.from(this.votes);
+    const approveCount = votes.length;
+
+    const verdict = approveCount > votes.length / 2 ? 'approve' : 'reject';
 
     try {
       const response = await fetch(`${API_URL}/sessions/${sessionId}/close`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          verdict: 'approve',
-          rationale: 'Analysis completed by all agents'
+          verdict,
+          rationale: `Analysis completed after ${this.currentIteration} iterations. ${votes.length} agents voted.`
         })
       });
 
@@ -283,7 +353,7 @@ class GatewayOrchestrator {
         throw new Error(`Failed to close session: ${response.statusText}`);
       }
 
-      console.log('✅ Session closed successfully');
+      console.log(`✅ Session closed with verdict: ${verdict}`);
     } catch (error) {
       console.error('❌ Error closing session:', error);
     }
@@ -292,6 +362,7 @@ class GatewayOrchestrator {
   stop(): void {
     console.log('🛑 Stopping gateway...');
     this.running = false;
+    this.workerManager.stopAll();
     this.ws?.close();
   }
 

@@ -2,6 +2,8 @@
 import { Command } from 'commander';
 import { ApiClient } from './client/api-client.js';
 import { existsSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
 const program = new Command();
 
@@ -563,12 +565,12 @@ program
     }
   });
 
-program
+  program
   .command('analyze')
   .description('Run automated multi-agent analysis on a session')
   .option('--session <id>', 'Session ID to analyze')
   .option('--iterations <number>', 'Maximum iterations per agent', '10')
-  .option('--timeout <ms>', 'Iteration timeout in milliseconds', '30000')
+  .option('--timeout <ms>', 'Iteration timeout in milliseconds', '60000')
   .action(async (options) => {
     try {
       if (!options.session) {
@@ -603,27 +605,45 @@ program
       }
 
       console.log('✅ Session found and active');
+      console.log(`Hypothesis: ${session.hypothesis.statement}`);
       console.log('');
 
       console.log('🏃 Running analysis...');
-      console.log('This will start the gateway orchestrator to analyze the session.');
-      console.log('The gateway will create 3 agents (debt, tech, market) and run them for multiple iterations.');
+      console.log('The gateway will create 3 agents (debt, tech, market) and run them in parallel.');
       console.log('');
 
-      console.log('To run the gateway manually, use:');
-      console.log(`  cd apps/thesis-gateway && node dist/index.js ${options.session}`);
-      console.log('');
-      console.log('Or use the docker-compose orchestrator service:');
-      console.log(`  docker-compose up orchestrator`);
-      console.log('');
+      const gatewayPath = join(dirname(fileURLToPath(import.meta.url)), '../../apps/thesis-gateway/dist/index.js');
 
-      console.log('⚠️  Note: The gateway needs to be built first:');
-      console.log('  pnpm --filter @thesis/gateway build');
-      console.log('');
+      const { spawn } = await import('child_process');
 
-      console.log('📊 Once the analysis is complete, you can:');
-      console.log(`  thesis status --session ${options.session}`);
-      console.log(`  thesis generate-report --session ${options.session} --output report.json`);
+      const gatewayProcess = spawn('node', [gatewayPath, options.session], {
+        stdio: 'inherit',
+        env: {
+          ...process.env,
+          API_URL: process.env.API_URL || 'http://localhost:4000',
+          WS_URL: process.env.WS_URL || 'ws://localhost:4000',
+          MAX_ITERATIONS: String(options.iterations),
+          ITERATION_TIMEOUT: String(options.timeout),
+          ITERATION_DELAY: '2000',
+          PI_PROVIDER: process.env.PI_PROVIDER || 'openai',
+          PI_MODEL: process.env.PI_MODEL || 'gpt-4o-mini',
+          PI_API_KEY: process.env.PI_API_KEY,
+        },
+      });
+
+      gatewayProcess.on('exit', (code) => {
+        if (code === 0) {
+          console.log('\n✅ Analysis completed successfully!');
+          console.log('');
+          console.log('📊 Check results:');
+          console.log(`  thesis status --session ${options.session}`);
+          console.log(`  thesis generate-report --session ${options.session} --output report.json`);
+        } else {
+          console.error(`\n❌ Analysis failed with code ${code}`);
+          process.exit(1);
+        }
+      });
+
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : error);
       process.exit(1);
