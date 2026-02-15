@@ -352,8 +352,8 @@ const decision = await this.decideAutonomousAction();
 ## 📊 Estatísticas Globais
 
 ```
-✅ Total de Fases Completas: 8/12 (67%)
-✅ Total de Testes: 93+ passando (aproximado)
+✅ Total de Fases Completas: 9/12 (75%)
+✅ Total de Testes: 113+ passando (aproximado)
 ✅ Repositories Criados: 11
 ✅ API Endpoints: 18
 ✅ WebSocket Endpoint: 1
@@ -367,6 +367,7 @@ const decision = await this.decideAutonomousAction();
 ✅ BASE_SYSTEM.md Global: 1
 ✅ Agentes Autônomos: Verdadeiramente autônomos (LLM decide ações)
 ✅ Contexto Real: Dados reais da API (docs, opinions, messages, votes, agents)
+✅ Orquestração Real: 3 agentes paralelos com sincronização
 ```
 
 ---
@@ -479,7 +480,8 @@ thesis/
 | Fase 6.5 | - | ✅ BUILD PASS |
 | Fase 7 | 11 | ✅ PASS |
 | Fase 8 | 18 | ✅ PASS |
-| **TOTAL** | **93+** | **✅ PASS** |
+| Fase 9 | 20 | ✅ PASS |
+| **TOTAL** | **113+** | **✅ PASS** |
 
 ---
 
@@ -760,17 +762,111 @@ AutonomousAgentContext (com dados reais)
 
 ---
 
-## 🎯 Próxima Fase
-
-### 📋 Fase 9: Gateway Orquestração
+### ✅ Fase 9: Gateway Orquestração
 **Objetivo:** Orquestrar 3 agentes paralelos com sincronização.
 
+**Entregas:**
+- ✅ Criar `AgentWorkerManager` para gerenciar worker threads
+- ✅ Implementar `GatewayOrchestrator` para gerenciar sessão
+- ✅ Registrar 3 agentes automaticamente (debt, tech, market)
+- ✅ Executar agentes em paralelo com iterações sincronizadas
+- ✅ Processar resultados dos agentes (opinions, messages, votes)
+- ✅ Implementar critérios de parada (todos votaram, max iterações)
+- ✅ Determinar veredito final baseado em maioria de votos
+- ✅ Integrar comando `analyze` do CLI para spawnar processo do gateway
+- ✅ Criar testes de orquestrador (13 testes)
+- ✅ Criar testes de worker manager (7 testes)
+
+**Componentes:**
+- `apps/thesis-gateway/src/worker-manager.ts` - Gerenciador de workers
+- `apps/thesis-gateway/src/index.ts` - GatewayOrchestrator refatorado
+- `apps/thesis-gateway/src/__tests__/worker-manager.test.ts` - Testes do worker manager
+- `apps/thesis-gateway/src/__tests__/orchestrator.test.ts` - Testes do orquestrador
+- `apps/thesis-cli/src/index.ts` - Comando analyze atualizado
+
+**Arquitetura:**
+```
+CLI (analyze) → Spawn Gateway Process
+  ↓
+GatewayOrchestrator
+  ├─> AgentWorkerManager (max_concurrent=3)
+  │   ├─> Worker: AgentWorker (debt) → LLM + Contexto Real
+  │   ├─> Worker: AgentWorker (tech) → LLM + Contexto Real
+  │   └─> Worker: AgentWorker (market) → LLM + Contexto Real
+  ├─> Sincronização de iterações
+  ├─> Processamento de resultados
+  ├─> Critérios de parada
+  └─> Veredito final (maioria)
+  ↓
+API (registrar ações)
+  ├─> POST /sessions/:id/agents (3 vezes no início)
+  ├─> POST /sessions/:id/opinions
+  ├─> POST /sessions/:id/messages
+  └─> POST /sessions/:id/votes
+  └─> POST /sessions/:id/close (ao final)
+```
+
+**Detalhamento da Implementação:**
+
+**AgentWorkerManager:**
+- Gerencia até 3 workers paralelos
+- Respeita max concurrency
+- Timeout por worker (configurável)
+- Reusa workers existentes
+- Stats ativos (activeWorkers, workerCount, pendingTasks)
+
+**GatewayOrchestrator:**
+1. `start(sessionId)`:
+   - Busca sessão da API
+   - Conecta WebSocket (eventos em tempo real)
+   - Registra 3 agentes automaticamente
+   - Inicia loop de iterações
+
+2. `runAnalysis(sessionId)`:
+   - Loop de 1 a MAX_ITERATIONS
+   - Cria tasks para os 3 agentes
+   - Executa em paralelo via WorkerManager
+   - Processa resultados (opinions, messages, votes)
+   - Aguarda ITERATION_DELAY entre iterações
+   - Para quando condições são atendidas
+
+3. `processResults(results)`:
+   - Chama API para registrar cada ação
+   - Registra votos em Set para contagem
+   - Trata erros com logging
+
+4. `shouldStop()`:
+   - `votes.size === 3`: Todos votaram
+   - `currentIteration >= MAX_ITERATIONS`: Max iterações
+
+5. `closeSession(sessionId)`:
+   - Determina veredito (maioria de votos)
+   - Chama API para fechar sessão
+   - Usa contagem de votos como rationale
+
+**CLI Integration:**
+- Comando `analyze` agora spawn processo do gateway
+- Passa env vars (API_URL, WS_URL, MAX_ITERATIONS, etc.)
+- Stdio inherit para logs em tempo real
+- Aguarda exit code (0 = sucesso)
+
+**Status:** ✅ COMPLETA
+**Testes:** 20 passed (gateway)
+
+---
+
+## 🎯 Próxima Fase
+
+### 📋 Fase 10: Comando CLI analyze Real
+**Objetivo:** Comando CLI `analyze` funciona end-to-end com sessão real.
+
 **Entregas Planejadas:**
-- 🔄 Implementar orquestração de 3 workers paralelos
-- 🔄 Sincronizar iterações entre agentes
-- 🔄 Gerenciar lifecycle de sessão de análise
-- 🔄 Integrar com API para registrar ações
-- 🔄 Testar com sessão real
+- 🔄 Validar fluxo completo do analyze
+- 🔄 Testar com sessão real da API
+- 🔄 Verificar que agentes usam LLM real
+- 🔄 Verificar sincronização de iterações
+- 🔄 Verificar registro correto na API
+- 🔄 Criar testes de integração end-to-end
 
 **Status:** ⏳ PENDENTE
 
@@ -790,12 +886,12 @@ AutonomousAgentContext (com dados reais)
 | Fase 6.5: Autonomia dos Agentes | ✅ COMPLETA | 2026-02-15 | Decisões autônomas |
 | Fase 7: Integração LLM Real | ✅ COMPLETA | 2026-02-15 | LLM real, não mock |
 | Fase 8: Contexto Real em Agent Runtime | ✅ COMPLETA | 2026-02-15 | Fetch docs, opinions, etc. |
-| Fase 9: Gateway Orquestração | ⏳ PENDENTE | --- | 3 agentes paralelos |
+| Fase 9: Gateway Orquestração | ✅ COMPLETA | 2026-02-15 | 3 agentes paralelos |
 | Fase 10: Comando CLI analyze Real | ⏳ PENDENTE | --- | Análise automatizada |
 | Fase 11: Integrações Externas | ⏳ PENDENTE | --- | Slack, WhatsApp, etc. |
 | Fase 12: Hardening (FINAL) | ⏳ PENDENTE | --- | Retries, observabilidade |
 
-**Progresso:** 8/12 fases completas (67%)
+**Progresso:** 9/12 fases completas (75%)
 
 ---
 
@@ -835,5 +931,5 @@ AutonomousAgentContext (com dados reais)
 ---
 
 **Última Atualização:** 15 de Fevereiro de 2026
-**Versão:** 0.7.0
-**Status:** ✅ Fases 0-8 completas, Próximo: Fase 9 (Gateway Orquestração)
+**Versão:** 0.8.0
+**Status:** ✅ Fases 0-9 completas, Próximo: Fase 10 (Comando CLI analyze Real)
