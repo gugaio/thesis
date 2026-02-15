@@ -352,8 +352,8 @@ const decision = await this.decideAutonomousAction();
 ## 📊 Estatísticas Globais
 
 ```
-✅ Total de Fases Completas: 6.5/12 (54%)
-✅ Total de Testes: 75+ passando (aproximado)
+✅ Total de Fases Completas: 8/12 (67%)
+✅ Total de Testes: 93+ passando (aproximado)
 ✅ Repositories Criados: 11
 ✅ API Endpoints: 18
 ✅ WebSocket Endpoint: 1
@@ -366,6 +366,7 @@ const decision = await this.decideAutonomousAction();
 ✅ SOUL.md Global: 1
 ✅ BASE_SYSTEM.md Global: 1
 ✅ Agentes Autônomos: Verdadeiramente autônomos (LLM decide ações)
+✅ Contexto Real: Dados reais da API (docs, opinions, messages, votes, agents)
 ```
 
 ---
@@ -476,7 +477,9 @@ thesis/
 | Fase 5 | 0 | ✅ PASS (manual) |
 | Fase 6 | 7 | ✅ PASS |
 | Fase 6.5 | - | ✅ BUILD PASS |
-| **TOTAL** | **75+** | **✅ PASS** |
+| Fase 7 | 11 | ✅ PASS |
+| Fase 8 | 18 | ✅ PASS |
+| **TOTAL** | **93+** | **✅ PASS** |
 
 ---
 
@@ -671,17 +674,103 @@ this.piAgent = new Agent({
 
 ---
 
-## 🎯 Próxima Fase
-
-### 📋 Fase 8: Contexto Real em Agent Runtime
+### ✅ Fase 8: Contexto Real em Agent Runtime
 **Objetivo:** Agentes usam dados reais da API para contexto completo.
 
+**Entregas:**
+- ✅ Criar `APIClient` classe para fetch de dados da API
+- ✅ Implementar `getSession()` - Buscar detalhes da sessão (hipótese, status, final_verdict)
+- ✅ Implementar `getDocuments()` - Listar documentos da sessão
+- ✅ Implementar `getOpinions()` - Listar opiniões anteriores
+- ✅ Implementar `getMessages()` - Listar mensagens anteriores
+- ✅ Implementar `getVotes()` - Listar votos anteriores
+- ✅ Implementar `getAgents()` - Listar agentes da sessão
+- ✅ Atualizar `buildAutonomousContext()` para usar APIClient
+- ✅ Mapear respostas da API para `AutonomousAgentContext`
+- ✅ Adicionar tratamento de erros com fallback para arrays vazios
+- ✅ Implementar timeout configurável nas requisições (10s padrão)
+- ✅ Criar testes unitários para APIClient (18 testes)
+- ✅ Filtrar o próprio agente das listas (opinions, messages, votes, agents)
+- ✅ Enriquecer dados com profiles de agentes (mapear agentId → profile)
+
+**Componentes:**
+- `apps/thesis-agent-runtime/src/api-client.ts` - Cliente HTTP para API
+- `apps/thesis-agent-runtime/src/agent-worker.ts` - Integração com APIClient
+- `apps/thesis-agent-runtime/src/__tests__/api-client.test.ts` - Testes do cliente
+
+**Mapeamento de Dados:**
+```typescript
+// API Response → AutonomousAgentContext
+{
+  hypothesis: sessionData.session.hypothesis.statement,
+  hypothesis_description: sessionData.session.hypothesis.description,
+  session_status: sessionData.session.status,
+  final_verdict: sessionData.session.finalVerdict,
+  documents: documents.map(d => ({ id, name, type, content_hash })),
+  other_agents: agents.filter(a => a.id !== this.taskId).map(a => ({
+    id: a.id,
+    profile: a.profile.role,
+    is_active: a.isActive
+  })),
+  previous_opinions: opinions.filter(o => o.agentId !== this.taskId).map(o => ({
+    agent_id: o.agentId,
+    profile: agentMap.get(o.agentId),
+    content: o.content,
+    confidence: o.confidence
+  })),
+  previous_messages: messages.filter(m => 
+    m.fromAgentId !== this.taskId || m.toAgentId !== this.taskId
+  ).map(m => ({
+    from_agent: agentMap.get(m.fromAgentId),
+    to_agent: agentMap.get(m.toAgentId),
+    content: m.content
+  })),
+  previous_votes: votes.filter(v => v.agentId !== this.taskId).map(v => ({
+    agent_id: v.agentId,
+    profile: agentMap.get(v.agentId),
+    verdict: v.verdict
+  }))
+}
+```
+
+**Tratamento de Erros:**
+- **API retorna 404/500**: Log warning e retornar fallback (vazio)
+- **Fetch falha**: Log error e retornar fallback (vazio)
+- **Timeout**: Log warning e retornar fallback (vazio)
+- **Logging**: `log.debug` para sucesso, `log.warn` para erros não críticos, `log.error` para críticos
+
+**Arquitetura:**
+```
+AgentWorker.buildAutonomousContext()
+  ↓
+APIClient.fetchWithTimeout()
+  ↓
+  ├─> getSession() → hypothesis, status, final_verdict
+  ├─> getDocuments() → lista de documentos
+  ├─> getAgents() → mapa agentId → profile
+  ├─> getOpinions() → opiniões anteriores
+  ├─> getMessages() → mensagens anteriores
+  └─> getVotes() → votos anteriores
+  ↓
+AutonomousAgentContext (com dados reais)
+```
+
+**Status:** ✅ COMPLETA
+**Testes:** 18 passed (api-client)
+
+---
+
+## 🎯 Próxima Fase
+
+### 📋 Fase 9: Gateway Orquestração
+**Objetivo:** Orquestrar 3 agentes paralelos com sincronização.
+
 **Entregas Planejadas:**
-- 🔄 Fetch de documents da sessão via API
-- 🔄 Fetch de opinions anteriores
-- 🔄 Fetch de messages anteriores
-- 🔄 Fetch de votes anteriores
-- 🔄 Popular `AutonomousAgentContext` completo com dados reais
+- 🔄 Implementar orquestração de 3 workers paralelos
+- 🔄 Sincronizar iterações entre agentes
+- 🔄 Gerenciar lifecycle de sessão de análise
+- 🔄 Integrar com API para registrar ações
+- 🔄 Testar com sessão real
 
 **Status:** ⏳ PENDENTE
 
@@ -700,13 +789,13 @@ this.piAgent = new Agent({
 | Fase 6: Integração Agent Runtime | ✅ COMPLETA | 2026-02-15 | Mono-pi, prompt-adapter |
 | Fase 6.5: Autonomia dos Agentes | ✅ COMPLETA | 2026-02-15 | Decisões autônomas |
 | Fase 7: Integração LLM Real | ✅ COMPLETA | 2026-02-15 | LLM real, não mock |
-| Fase 8: Contexto Real em Agent Runtime | ⏳ PENDENTE | --- | Fetch docs, opinions, etc. |
+| Fase 8: Contexto Real em Agent Runtime | ✅ COMPLETA | 2026-02-15 | Fetch docs, opinions, etc. |
 | Fase 9: Gateway Orquestração | ⏳ PENDENTE | --- | 3 agentes paralelos |
 | Fase 10: Comando CLI analyze Real | ⏳ PENDENTE | --- | Análise automatizada |
 | Fase 11: Integrações Externas | ⏳ PENDENTE | --- | Slack, WhatsApp, etc. |
 | Fase 12: Hardening (FINAL) | ⏳ PENDENTE | --- | Retries, observabilidade |
 
-**Progresso:** 7/12 fases completas (58%)
+**Progresso:** 8/12 fases completas (67%)
 
 ---
 
@@ -746,5 +835,5 @@ this.piAgent = new Agent({
 ---
 
 **Última Atualização:** 15 de Fevereiro de 2026
-**Versão:** 0.6.0
-**Status:** ✅ Fases 0-7 completas, Próximo: Fase 8 (Contexto Real em Agent Runtime)
+**Versão:** 0.7.0
+**Status:** ✅ Fases 0-8 completas, Próximo: Fase 9 (Gateway Orquestração)
