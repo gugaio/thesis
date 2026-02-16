@@ -188,9 +188,10 @@ description2: Another description
     expect(result.frontmatter).toHaveProperty('name');
     expect(result.frontmatter).toHaveProperty('description');
     expect(result.frontmatter).toHaveProperty('metadata');
-    expect(result.frontmatter).toHaveProperty('other');
     expect(result.frontmatter).toHaveProperty('description2');
-    expect(result.frontmatter.other).toBe('value');
+    expect(result.frontmatter.metadata).toHaveProperty('thesis');
+    expect(result.frontmatter.metadata).toHaveProperty('other');
+    expect(result.frontmatter.metadata.other).toBe('value');
   });
 
   it('should get role from path - debt', () => {

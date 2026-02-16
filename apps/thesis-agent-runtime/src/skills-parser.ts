@@ -17,41 +17,45 @@ export function parseSkill(skillContent: string, skillPath: string): ParsedSkill
   const frontmatterText = skillContent.substring(startIndex, endIndex);
   const content = skillContent.substring(endIndex + 4);
 
-  // Parse YAML frontmatter line by line
+  // Parse YAML frontmatter with proper indentation handling
   const lines = frontmatterText.split('\n');
-  const metadata: Record<string, any> = {
-    name: '',
-    description: '',
-    thesis: { role: '', weight: 1.0 },
-  };
-
-  let currentKey: string | null = null;
+  const metadata: Record<string, any> = {};
+  const stack: Array<{ obj: Record<string, any>; indent: number }> = [{ obj: metadata, indent: -1 }];
 
   for (const line of lines) {
     const trimmed = line.trim();
+    const indent = line.length - line.trimLeft().length;
     
-    if (!trimmed || trimmed.startsWith('#')) {
+    if (!trimmed || trimmed.startsWith('#') || trimmed === '---') {
       continue;
     }
 
-    if (trimmed === '---') {
-      continue;
+    // Pop stack to appropriate indentation level
+    while (stack.length > 1 && stack[stack.length - 1].indent >= indent) {
+      stack.pop();
     }
 
     const colonIndex = trimmed.indexOf(':');
     if (colonIndex > 0) {
       const key = trimmed.substring(0, colonIndex).trim();
-      const value = trimmed.substring(colonIndex + 1).trim();
+      const valueStr = trimmed.substring(colonIndex + 1).trim();
+      const value = parseYamlValue(valueStr);
       
-      if (currentKey) {
-        metadata[currentKey] = '';
-      }
-      currentKey = null;
-    } else {
-      if (currentKey && metadata[currentKey]) {
-        metadata[currentKey] += '\n' + line;
+      const current = stack[stack.length - 1].obj;
+      
+      if (valueStr === '' && indent > stack[stack.length - 1].indent) {
+        // This is a nested object without a value
+        current[key] = {};
+        stack.push({ obj: current[key] as Record<string, any>, indent });
+      } else {
+        current[key] = value;
       }
     }
+  }
+  
+  // Handle nested metadata.thesis structure
+  if (metadata.metadata && metadata.metadata.thesis) {
+    metadata.thesis = metadata.metadata.thesis;
   }
 
   // Get name from metadata
