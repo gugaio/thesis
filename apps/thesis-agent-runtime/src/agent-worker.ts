@@ -101,7 +101,7 @@ export class AgentWorker {
       }));
 
     const previousMessages = messages
-      .filter(m => m.fromAgentId !== this.taskId || m.toAgentId !== this.taskId)
+      .filter(m => m.fromAgentId === this.taskId || m.toAgentId === this.taskId)
       .map(m => ({
         from_agent: agentMap.get(m.fromAgentId) || 'debt',
         to_agent: agentMap.get(m.toAgentId) || 'debt',
@@ -228,6 +228,15 @@ The "action" field MUST be EXACTLY one of these four values (case-sensitive):
 - "send message" ❌
 - "cast vote" ❌
 - Any other variation ❌
+
+**MESSAGE HANDLING:**
+- Check the "Previous Messages" section for messages addressed TO you
+  (where {to_agent} matches your profile: ${context.profile})
+- If you receive a message, you SHOULD respond with:
+  - "message" - to answer questions or continue the conversation
+  - "opinion" - to provide requested analysis
+  - "vote" - only if you have sufficient evidence to decide
+- Only use "wait" if you have NO pending messages AND genuinely need more information
 
 **IMPORTANT:**
 - Provide a clear, detailed reasoning that references specific information from the context
