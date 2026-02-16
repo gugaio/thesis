@@ -22,18 +22,19 @@ export function MessagesPanel({ messages, agents }: MessagesPanelProps) {
   };
 
   const getAgentColor = (role: string): string => {
-    switch (role.toLowerCase()) {
-      case 'debt':
-        return 'border-green-400';
-      case 'tech':
-        return 'border-yellow-400';
-      case 'market':
-        return 'border-blue-400';
-      case 'branding':
-        return 'border-purple-400';
-      default:
-        return 'border-gray-400';
+    const colorMap: Record<string, string> = {
+      debt: 'border-green-400',
+      tech: 'border-yellow-400',
+      market: 'border-blue-400',
+      branding: 'border-purple-400',
+    };
+    
+    const normalizedRole = role.toLowerCase();
+    if (colorMap[normalizedRole]) {
+      return colorMap[normalizedRole];
     }
+    
+    return 'border-gray-400';
   };
 
   const toggleExpand = (messageId: string) => {

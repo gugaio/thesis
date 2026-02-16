@@ -1,0 +1,23 @@
+{
+  "name": "@thesis/skills",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "THESIS Skills - Agent profiles and skill definitions",
+  "main": "./dist/AGENTS_CONFIG.js",
+  "types": "./dist/AGENTS_CONFIG.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  }
+}

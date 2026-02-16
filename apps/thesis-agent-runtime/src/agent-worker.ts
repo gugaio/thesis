@@ -8,6 +8,7 @@ import { composePrompt, buildConstraints, savePromptSnapshot } from '@thesis/pro
 import { Agent } from '@mariozechner/pi-agent-core';
 import { getModel } from '@mariozechner/pi-ai';
 import { APIClient } from './api-client.js';
+import { getAgentConfig, AGENT_ROLES } from '@thesis/skills';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -275,7 +276,7 @@ The "action" field MUST be EXACTLY one of these four values (case-sensitive):
             wait_seconds: 5
           };
         }
-        if (!decision.target_agent || !['debt', 'tech', 'market'].includes(decision.target_agent)) {
+        if (!decision.target_agent || !AGENT_ROLES.includes(decision.target_agent as AgentProfile)) {
           log.warn(`[Worker ${this.taskId}] Message action without valid target_agent: ${decision.target_agent}, changing to wait`);
           return {
             action: 'wait',
@@ -399,12 +400,8 @@ The "action" field MUST be EXACTLY one of these four values (case-sensitive):
   }
 
   private getProfileDescription(profile: AgentProfile): string {
-    const profiles: Record<AgentProfile, string> = {
-      debt: 'You are a Debt Specialist focused on startup financials, burn rate, runway, and unit economics.',
-      tech: 'You are a Tech Expert focused on technology stack, technical debt, scalability, and architecture.',
-      market: 'You are a Market Analyst focused on TAM/SAM/SOM, competition, and product-market fit.'
-    };
-    return profiles[profile];
+    const agentConfig = getAgentConfig(profile);
+    return agentConfig.soul;
   }
 
   private async decideAutonomousAction(): Promise<StructuredAgentDecision> {

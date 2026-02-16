@@ -1,6 +1,7 @@
 import { Worker } from 'worker_threads';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import type { AgentRole } from '@thesis/skills';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -14,7 +15,7 @@ interface WorkerMessage {
 interface AgentTask {
   session_id: string;
   agent_id: string;
-  profile_role: 'debt' | 'tech' | 'market';
+  profile_role: AgentRole;
   skill_path: string;
   skill_content: string;
   iteration: number;
@@ -32,7 +33,7 @@ interface AgentResult {
   action: 'opinion' | 'message' | 'vote' | 'wait';
   content?: string;
   confidence?: number;
-  target_agent?: 'debt' | 'tech' | 'market';
+  target_agent?: AgentRole;
   verdict?: 'approve' | 'reject' | 'abstain';
   wait_seconds?: number;
   reasoning?: string;

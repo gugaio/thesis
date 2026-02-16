@@ -1,0 +1,248 @@
+{
+  "session": {
+    "id": "1babe7e3-f221-461d-a588-c715d15c8388",
+    "status": "closed",
+    "finalVerdict": "approve",
+    "closedAt": "2026-02-16T18:48:31.288Z",
+    "createdAt": "2026-02-16T18:11:40.382Z",
+    "updatedAt": "2026-02-16T18:48:31.288Z"
+  },
+  "hypothesis": {
+    "id": "84350fee-ce6f-4252-8660-42b7b73578eb",
+    "statement": "A NG.CASH é uma oportunidade de Série B de alto potencial baseada na dominância de market share no segmento 'Under-18' e na baixa taxa de churn orgânico. Argumentos para os Agentes validarem:\nCusto de Aquisição (CAC) vs. LTV: O engajamento em redes sociais (TikTok/Instagram) permite um CAC significativamente menor que bancos tradicionais. O agente deve avaliar se o valor de vida do cliente (LTV) compensa o baixo ticket médio inicial dos adolescentes. Retenção e Amadurecimento: À medida que essa base de usuários entra no mercado de trabalho, a NG.CASH conseguirá manter a conta principal ou eles migrarão para bancos adultos? Monetização: Além de taxas de intercâmbio (cartão), como a empresa planeja monetizar? (Ex: Marketplace de crédito para jovens, produtos de investimento simplificados ou parcerias com marcas). Barreiras de Entrada: Qual a dificuldade de um neobanco gigante (como o Nubank) simplesmente lançar uma aba Kids e esmagar a operação da NG?",
+    "description": "Setor: Fintech / Carteira Digital\nPúblico-alvo: Geração Z (nativos digitais, adolescentes e jovens adultos) Proposta de Valor: A NG.CASH oferece uma conta digital que permite a menores de idade gerirem seu próprio dinheiro, com aprovação dos responsáveis, mas com total autonomia de uso. O foco está na alfabetização financeira através da experiência prática, oferecendo cartões de débito personalizados, PIX, e funcionalidades voltadas para o consumo desse público (games, mimos e creator economy). Ponto-chave para o Agente: A empresa se diferencia pelo branding disruptivo e pela interface que se assemelha mais a uma rede social ou plataforma de jogos do que a um banco tradicional.",
+    "confidence": 0.5
+  },
+  "documents": [
+    {
+      "id": "c9e3feb0-f6dc-48e1-8a70-867b4cafb2bb",
+      "name": "financial-model.md",
+      "type": "text/markdown",
+      "size": "3037",
+      "uploadedAt": "2026-02-16T18:13:26.603Z"
+    },
+    {
+      "id": "c5313826-ff18-408c-bd53-29ebfd3530ca",
+      "name": "growth-cohort-retention.md",
+      "type": "text/markdown",
+      "size": "1596",
+      "uploadedAt": "2026-02-16T18:13:26.782Z"
+    },
+    {
+      "id": "1e1eb73f-f41f-4f4c-9941-abb109b67467",
+      "name": "growth-cac-breakdown.md",
+      "type": "text/markdown",
+      "size": "3028",
+      "uploadedAt": "2026-02-16T18:13:26.940Z"
+    },
+    {
+      "id": "53e2abe7-84da-4da1-b913-42cdb0b4aa0d",
+      "name": "risk-regulatory-analysis.md",
+      "type": "text/markdown",
+      "size": "4374",
+      "uploadedAt": "2026-02-16T18:13:27.102Z"
+    },
+    {
+      "id": "e22fa8ef-bd9c-4633-803d-f5e1d9359d8d",
+      "name": "tech-architecture.md",
+      "type": "text/markdown",
+      "size": "4782",
+      "uploadedAt": "2026-02-16T18:13:27.262Z"
+    },
+    {
+      "id": "fd2afdf4-ae36-47bf-bbf2-3f643f94bdbc",
+      "name": "ngcash.txt",
+      "type": "text/plain",
+      "size": "2600",
+      "uploadedAt": "2026-02-16T18:13:27.419Z"
+    },
+    {
+      "id": "79da7c2d-d2fd-4f3e-812f-da623c3108df",
+      "name": "market-competition.md",
+      "type": "text/markdown",
+      "size": "1918",
+      "uploadedAt": "2026-02-16T18:13:27.583Z"
+    },
+    {
+      "id": "c87f0f1d-0388-4223-837a-cfd974341f64",
+      "name": "financial-cap-table.md",
+      "type": "text/markdown",
+      "size": "2650",
+      "uploadedAt": "2026-02-16T18:13:27.749Z"
+    },
+    {
+      "id": "b1a093bf-08bb-4304-8c70-c440e97e50ce",
+      "name": "session-investment-thesis.md",
+      "type": "text/markdown",
+      "size": "3774",
+      "uploadedAt": "2026-02-16T18:13:27.918Z"
+    }
+  ],
+  "agents": [
+    {
+      "id": "a7e39c54-5b0e-4d9c-ab08-12782fe33e3e",
+      "profile": {
+        "id": "550e8400-e29b-41d4-a716-446655440001",
+        "name": "Debt Specialist",
+        "role": "debt",
+        "description": "Especialista em finanças de startups",
+        "weight": 1,
+        "soul": "Especialista em finanças de startups. Foca em: burn rate, runway, unit economics, e sinais de distress financeiro."
+      },
+      "joinedAt": "2026-02-16T18:47:53.853Z",
+      "isActive": true,
+      "budget": {
+        "credits": 99,
+        "maxCredits": 100,
+        "lastRefill": "2026-02-16T18:47:53.853Z"
+      }
+    },
+    {
+      "id": "85988f53-f6b3-4202-a8b8-f8201f3ff49d",
+      "profile": {
+        "id": "550e8400-e29b-41d4-a716-446655440002",
+        "name": "Tech Expert",
+        "role": "tech",
+        "description": "Arquiteto de software",
+        "weight": 0.8,
+        "soul": "Arquiteto de software. Avalia: stack tecnológica, debt técnico, escalabilidade, e práticas de engenharia."
+      },
+      "joinedAt": "2026-02-16T18:47:53.863Z",
+      "isActive": true,
+      "budget": {
+        "credits": 100,
+        "maxCredits": 100,
+        "lastRefill": "2026-02-16T18:47:53.863Z"
+      }
+    },
+    {
+      "id": "d570020d-220f-4214-a421-209bc1a2695c",
+      "profile": {
+        "id": "550e8400-e29b-41d4-a716-446655440003",
+        "name": "Market Analyst",
+        "role": "market",
+        "description": "Estrategista de mercado",
+        "weight": 0.9,
+        "soul": "Estrategista de mercado. Analisa: TAM/SAM/SOM, competition, product-market fit, e tendências de mercado."
+      },
+      "joinedAt": "2026-02-16T18:47:53.873Z",
+      "isActive": true,
+      "budget": {
+        "credits": 99,
+        "maxCredits": 100,
+        "lastRefill": "2026-02-16T18:47:53.873Z"
+      }
+    },
+    {
+      "id": "6a8b3d40-a626-4b89-9158-dfb0cbf735f4",
+      "profile": {
+        "id": "550e8400-e29b-41d4-a716-446655440004",
+        "name": "Capital Strategist",
+        "role": "capital",
+        "description": "Analyze capital efficiency, unit economics, runway, and strategic capital allocation",
+        "weight": 1,
+        "soul": "You are a venture capital financial strategist focused on capital efficiency, scenario modeling, and long-term sustainability. You specialize in Burn Rate & Runway dynamics, Unit Economics, Capital Allocation Strategy, Scenario & Sensitivity Analysis, Dilution & Cap Table impact, and Path to profitability."
+      },
+      "joinedAt": "2026-02-16T18:47:53.884Z",
+      "isActive": true,
+      "budget": {
+        "credits": 99,
+        "maxCredits": 100,
+        "lastRefill": "2026-02-16T18:47:53.884Z"
+      }
+    }
+  ],
+  "votes": [
+    {
+      "id": "1c821079-74c7-4409-9915-eee799b87db9",
+      "agentId": "a7e39c54-5b0e-4d9c-ab08-12782fe33e3e",
+      "verdict": "approve",
+      "rationale": "I have gathered sufficient information regarding NG.CASH's monetization strategies and customer retention plans from previous interactions. The insights from the tech agent confirm that NG.CASH's approach to diversifying its revenue streams through a tailored marketplace for credit and simplified investment products is effective. Additionally, the engagement strategies targeting Gen Z are well-founded. Therefore, I am ready to cast my vote on the investment hypothesis that NG.CASH represents a high-potential Series B opportunity.",
+      "votedAt": "2026-02-16T18:48:24.895Z"
+    },
+    {
+      "id": "5e6e4eed-e4b2-4a4f-adb5-b2599b580ad9",
+      "agentId": "d570020d-220f-4214-a421-209bc1a2695c",
+      "verdict": "approve",
+      "rationale": "After reviewing the insights shared by the tech and debt agents regarding NG.CASH's monetization strategies, customer retention, and their competitive positioning within the fintech space, there is sufficient evidence to support the investment hypothesis. The focus on marketplace products and simplified investments tailored for Gen Z, alongside low CAC and engagement through social media, strengthens the case for investment. Thus, I'm ready to cast a vote.",
+      "votedAt": "2026-02-16T18:48:24.910Z"
+    },
+    {
+      "id": "56fe50f9-c6b3-4816-84a2-2973dd9a0c06",
+      "agentId": "6a8b3d40-a626-4b89-9158-dfb0cbf735f4",
+      "verdict": "approve",
+      "rationale": "After evaluating the insights provided by other agents, including the potential for NG.CASH's monetization strategies and customer retention, I now have sufficient information to make an informed judgment. Both the tech and debt agents have indicated robust business models and strategies that align with the investment hypothesis. Therefore, I believe NG.CASH is a worthwhile investment opportunity.",
+      "votedAt": "2026-02-16T18:48:24.922Z"
+    },
+    {
+      "id": "949e2821-8251-44a7-9a1f-b64ed2030e42",
+      "agentId": "85988f53-f6b3-4202-a8b8-f8201f3ff49d",
+      "verdict": "approve",
+      "rationale": "After reviewing the insights shared by the debt and capital agents regarding NG.CASH’s monetization strategies and growth potential, I believe that the combined opinions present a strong case for investment. The focus on a generational shift in banking with robust retention strategies aligns well with the investment hypothesis. All relevant agents have given their approval, and I find the evidence compelling enough to cast my vote.",
+      "votedAt": "2026-02-16T18:48:31.270Z"
+    }
+  ],
+  "opinions": [
+    {
+      "id": "5b2e7a42-3885-4b48-bf58-232df077236e",
+      "agentId": "85988f53-f6b3-4202-a8b8-f8201f3ff49d",
+      "content": "After analyzing the tech architecture and growth strategies detailed in the documents, my assessment indicates that NG.CASH stands to effectively leverage its technology in a manner conducive to scaling operations. The engagement through social media reduces CAC significantly compared to traditional banks, which is beneficial for capturing the target demographic. As the product matures, retaining customers will depend on the platform's ability to evolve and provide relevant financial services, such as credit and investment options tailored for the Gen Z audience. Therefore, it is recommended to further investigate how NG.CASH plans to innovate in its service offerings to ensure retention as users age. Overall, I believe this strategy will enhance their LTV and justify the initial CAC investment. I rate my confidence in this insight at 0.8.",
+      "confidence": 0.8,
+      "postedAt": "2026-02-16T18:48:00.127Z"
+    },
+    {
+      "id": "9f4cb0c9-a689-42d8-a26f-2a71a1e42d3a",
+      "agentId": "a7e39c54-5b0e-4d9c-ab08-12782fe33e3e",
+      "content": "NG.CASH's monetization strategy appears robust with its plans for a marketplace designed for younger users and simplified investment options. The intention to partner with relevant brands also signifies an effort to enhance user engagement and loyalty, which is critical as this demographic transitions to adulthood. These factors could significantly increase the LTV, making the business model sustainable and appealing for investment. Therefore, I recommend considering NG.CASH as a viable investment option given these strategic insights.",
+      "confidence": 0.8,
+      "postedAt": "2026-02-16T18:48:19.184Z"
+    },
+    {
+      "id": "f544a131-63c4-43c6-877b-00f7e3f3c384",
+      "agentId": "85988f53-f6b3-4202-a8b8-f8201f3ff49d",
+      "content": "NG.CASH aims to diversify its monetization strategies beyond interchange fees. Key initiatives include the establishment of a marketplace for credit products specifically tailored for its young user base, potentially in partnership with brands aligned with Gen Z interests. Additionally, they are exploring simplified investment products that provide educational elements of financial literacy, which can engage users and maintain account retention. This focuses on evolving their service offerings to retain users transitioning into adulthood, addressing the concern of customers migrating to traditional banks. I rate my confidence in this analysis at 0.8.",
+      "confidence": 0.8,
+      "postedAt": "2026-02-16T18:48:19.196Z"
+    }
+  ],
+  "voteCounts": {
+    "approve": 4,
+    "reject": 0,
+    "abstain": 0
+  },
+  "rankings": [
+    {
+      "agentId": "85988f53-f6b3-4202-a8b8-f8201f3ff49d",
+      "score": 11.280000000000001,
+      "totalVotes": 1,
+      "correctVotes": 1,
+      "totalOpinions": 2,
+      "avgConfidence": 0.8
+    },
+    {
+      "agentId": "a7e39c54-5b0e-4d9c-ab08-12782fe33e3e",
+      "score": 10.8,
+      "totalVotes": 1,
+      "correctVotes": 1,
+      "totalOpinions": 1,
+      "avgConfidence": 0.8
+    },
+    {
+      "agentId": "d570020d-220f-4214-a421-209bc1a2695c",
+      "score": 10,
+      "totalVotes": 1,
+      "correctVotes": 1,
+      "totalOpinions": 0,
+      "avgConfidence": 0
+    },
+    {
+      "agentId": "6a8b3d40-a626-4b89-9158-dfb0cbf735f4",
+      "score": 10,
+      "totalVotes": 1,
+      "correctVotes": 1,
+      "totalOpinions": 0,
+      "avgConfidence": 0
+    }
+  ],
+  "generatedAt": "2026-02-16T18:52:45.423Z"
+}

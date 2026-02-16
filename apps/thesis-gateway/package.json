@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@thesis/protocol": "workspace:*",
+    "@thesis/skills": "workspace:*",
     "dotenv": "^17.2.3",
     "ws": "^8.19.0"
   },

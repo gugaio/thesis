@@ -1,5 +1,6 @@
-// Agent profiles
-export type AgentProfile = 'debt' | 'tech' | 'market';
+import type { AgentRole } from '@thesis/skills';
+
+export type AgentProfile = AgentRole;
 
 // Session status from thesis API
 export interface ThesisSession {

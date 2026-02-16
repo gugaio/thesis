@@ -1,17 +1,20 @@
+import type { AgentRole } from '@thesis/skills';
+import { AGENTS_CONFIG } from '@thesis/skills';
+
 export interface AgentResult {
   agent_id: string;
   iteration: number;
   action: 'opinion' | 'message' | 'vote' | 'wait';
   content?: string;
   confidence?: number;
-  target_agent?: 'debt' | 'tech' | 'market';
+  target_agent?: AgentRole;
   verdict?: 'approve' | 'reject' | 'abstain';
   wait_seconds?: number;
   reasoning?: string;
 }
 
 export interface MockAgentConfig {
-  profile: 'debt' | 'tech' | 'market';
+  profile: AgentRole;
   initialOpinion?: boolean;
   sendMessage?: boolean;
   voteVerdict?: 'approve' | 'reject' | 'abstain';
@@ -102,18 +105,19 @@ export class MockAgentWorker {
     };
   }
 
-  private getProfileOpinionContent(profile: 'debt' | 'tech' | 'market'): string {
+  private getProfileOpinionContent(profile: AgentRole): string {
     switch (profile) {
       case 'debt':
         return 'Financial metrics look promising with healthy burn rate and runway. Unit economics show positive signs of scalability.';
       case 'tech':
-        return 'Technical architecture is solid with modern stack. Code quality appears good and the team shows strong engineering capabilities.';
+        return 'Technical architecture is solid with modern stack. Code quality appears good and team shows strong engineering capabilities.';
       case 'market':
         return 'Market opportunity is significant with clear product-market fit. Competition landscape is manageable with proper differentiation.';
     }
+    return `Analysis from ${profile} specialist`;
   }
 
-  private getTargetAgent(profile: 'debt' | 'tech' | 'market'): 'debt' | 'tech' | 'market' {
+  private getTargetAgent(profile: AgentRole): AgentRole {
     switch (profile) {
       case 'debt':
         return 'tech';
@@ -122,9 +126,10 @@ export class MockAgentWorker {
       case 'market':
         return 'debt';
     }
+    return 'debt';
   }
 
-  private getProfileMessageContent(profile: 'debt' | 'tech' | 'market', target: 'debt' | 'tech' | 'market'): string {
+  private getProfileMessageContent(profile: AgentRole, target: AgentRole): string {
     const questions: Record<string, Record<string, string>> = {
       debt: {
         tech: 'What are the key technical risks or debt that might impact scalability and costs?',
@@ -142,7 +147,7 @@ export class MockAgentWorker {
     return questions[profile][target];
   }
 
-  private getVoteRationale(verdict: 'approve' | 'reject' | 'abstain', profile: 'debt' | 'tech' | 'market'): string {
+  private getVoteRationale(verdict: 'approve' | 'reject' | 'abstain', profile: AgentRole): string {
     if (verdict === 'approve') {
       return `Based on ${profile} analysis, the opportunity meets our criteria for investment recommendation.`;
     } else if (verdict === 'reject') {
@@ -160,20 +165,12 @@ export class MockAgentWorker {
 export function createMockAgentWorkers(): Map<string, MockAgentWorker> {
   const mockWorkers = new Map<string, MockAgentWorker>();
   
-  mockWorkers.set('debt', new MockAgentWorker({ 
-    profile: 'debt',
-    voteVerdict: 'approve'
-  }));
-  
-  mockWorkers.set('tech', new MockAgentWorker({ 
-    profile: 'tech',
-    voteVerdict: 'approve'
-  }));
-  
-  mockWorkers.set('market', new MockAgentWorker({ 
-    profile: 'market',
-    voteVerdict: 'approve'
-  }));
+  for (const config of AGENTS_CONFIG) {
+    mockWorkers.set(config.role as AgentRole, new MockAgentWorker({ 
+      profile: config.role as AgentRole,
+      voteVerdict: 'approve'
+    }));
+  }
   
   return mockWorkers;
 }

@@ -1,6 +1,7 @@
-import type { ParsedSkill, SkillMetadata } from './types.js';
+import type { ParsedSkill, SkillMetadata, AgentProfile } from './types.js';
 import { log } from './config.js';
 import fs from 'fs/promises';
+import { AGENT_ROLES, getAgentConfig } from '@thesis/skills';
 
 export function parseSkill(skillContent: string, skillPath: string): ParsedSkill {
   log.debug(`[SkillsParser] Parsing skill: ${skillPath}`);
@@ -79,9 +80,8 @@ export function parseSkill(skillContent: string, skillPath: string): ParsedSkill
   }
 
   // Validate role
-  const validRoles: Array<'debt' | 'tech' | 'market'> = ['debt', 'tech', 'market'];
-  if (!validRoles.includes(metadata.thesis.role)) {
-    throw new Error(`Invalid role '${metadata.thesis.role}' in skill: ${skillPath}. Must be one of: ${validRoles.join(', ')}`);
+  if (!AGENT_ROLES.includes(metadata.thesis.role as AgentProfile)) {
+    throw new Error(`Invalid role '${metadata.thesis.role}' in skill: ${skillPath}. Must be one of: ${AGENT_ROLES.join(', ')}`);
   }
 
   // Validate weight
@@ -130,19 +130,13 @@ export async function loadSkill(skillPath: string): Promise<ParsedSkill> {
   return parseSkill(content, skillPath);
 }
 
-export function getRoleFromSkill(skillPath: string): 'debt' | 'tech' | 'market' {
-  const match = skillPath.match(/(debt-specialist|tech-expert|market-analyst)/);
-  
-  if (!match) {
-    throw new Error(`Cannot determine role from skill path: ${skillPath}`);
+export function getRoleFromSkill(skillPath: string): AgentProfile {
+  for (const role of AGENT_ROLES) {
+    const agentConfig = getAgentConfig(role);
+    if (skillPath.includes(agentConfig.skillFile.split('/')[0])) {
+      return role;
+    }
   }
-
-  const role = match[1];
-  const roleMap: Record<string, 'debt' | 'tech' | 'market'> = {
-    'debt-specialist': 'debt',
-    'tech-expert': 'tech',
-    'market-analyst': 'market',
-  };
-
-  return roleMap[role] || 'debt';
+  
+  throw new Error(`Cannot determine role from skill path: ${skillPath}`);
 }

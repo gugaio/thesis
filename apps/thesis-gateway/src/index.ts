@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readFileSync } from 'fs';
 import { AgentWorkerManager } from './worker-manager.js';
+import { AGENTS_CONFIG, type AgentRole } from '@thesis/skills';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -46,7 +47,7 @@ class GatewayOrchestrator {
   private currentIteration = 0;
 
   constructor() {
-    this.workerManager = new AgentWorkerManager(3);
+    this.workerManager = new AgentWorkerManager(AGENTS_CONFIG.length);
   }
 
   async start(sessionId: string): Promise<void> {
@@ -116,13 +117,7 @@ class GatewayOrchestrator {
   private async registerAgents(sessionId: string): Promise<void> {
     console.log('\n🤖 Registering agents...');
 
-    const profiles: Array<{ role: string; name: string }> = [
-      { role: 'debt', name: 'Debt Specialist' },
-      { role: 'tech', name: 'Tech Expert' },
-      { role: 'market', name: 'Market Analyst' }
-    ];
-
-    for (const profile of profiles) {
+    for (const profile of AGENTS_CONFIG) {
       try {
         const response = await fetch(`${API_URL}/sessions/${sessionId}/agents`, {
           method: 'POST',
@@ -182,17 +177,11 @@ class GatewayOrchestrator {
   }
 
   private createAgentTasks(sessionId: string, iteration: number) {
-    const profiles = ['debt', 'tech', 'market'] as const;
-
-    return profiles.map(profile => ({
+    return AGENTS_CONFIG.map(profile => ({
       session_id: sessionId,
-      agent_id: this.agentIds.get(profile)!,
-      profile_role: profile,
-      skill_path: join(__dirname, '../../../packages/skills', 
-        profile === 'debt' ? 'debt-specialist' : 
-        profile === 'tech' ? 'tech-expert' : 'market-analyst',
-        'SKILL.md'
-      ),
+      agent_id: this.agentIds.get(profile.role as AgentRole)!,
+      profile_role: profile.role as AgentRole,
+      skill_path: join(__dirname, '../../../packages/skills', profile.skillFile),
       skill_content: '',
       iteration,
       max_iterations: MAX_ITERATIONS,
@@ -326,7 +315,7 @@ class GatewayOrchestrator {
   }
 
   private shouldStop(): boolean {
-    const allVoted = this.votes.size === 3;
+    const allVoted = this.votes.size === AGENTS_CONFIG.length;
     const maxReached = this.currentIteration >= MAX_ITERATIONS;
 
     if (allVoted) {

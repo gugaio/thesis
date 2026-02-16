@@ -4,6 +4,7 @@ import { ApiClient } from './client/api-client.js';
 import { existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { AGENTS_CONFIG, AGENT_ROLES } from '@thesis/skills';
 
 const program = new Command();
 
@@ -48,7 +49,7 @@ program
       console.log('');
       console.log('Use --session flag for subsequent commands:');
       console.log(`  thesis upload-doc --session ${result.sessionId} --file <path>`);
-      console.log(`  thesis join-session --session ${result.sessionId} --profile <debt|tech|market>`);
+      console.log(`  thesis join-session --session ${result.sessionId} --profile <${AGENT_ROLES.join('|')}>`);
       console.log(`  thesis status --session ${result.sessionId}`);
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : error);
@@ -144,14 +145,13 @@ program
 
       if (!options.profile) {
         console.error('Error: --profile is required');
-        console.error('Available profiles: debt, tech, market');
+        console.error(`Available profiles: ${AGENT_ROLES.join(', ')}`);
         process.exit(1);
       }
 
-      const validProfiles = ['debt', 'tech', 'market'];
-      if (!validProfiles.includes(options.profile)) {
+      if (!AGENT_ROLES.includes(options.profile as any)) {
         console.error(`Error: Invalid profile "${options.profile}"`);
-        console.error(`Available profiles: ${validProfiles.join(', ')}`);
+        console.error(`Available profiles: ${AGENT_ROLES.join(', ')}`);
         process.exit(1);
       }
 
