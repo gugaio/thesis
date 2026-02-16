@@ -71,6 +71,11 @@ Fase inicial:
 
 Expansão:
 1. Só adicionar tools quando um caso concreto bloquear evolução do produto.
+2. `web_search` com Perplexity API para busca web real-time (Fase 11):
+   - Cache de 5 minutos para queries repetidas
+   - Dedução de budget por tool calls
+   - Logs completos em DEBUG level
+   - Citações incluídas nas respostas
 
 ## 8) Memória de longo prazo
 Versão inicial:
@@ -181,7 +186,19 @@ Teste: 3 agentes rodando em paralelo, decisões sendo feitas.
 - Progresso visível em tempo real (WebSocket)
 **Teste:** comando analyze inicia análise completa.
 
-### Fase 11: Visualização Completa das Ações dos Agentes
+### Fase 11: Perplexity Web Search Tool Integration
+**Objetivo:** integrar Perplexity API para busca web real-time em que agentes podem acessar informações atualizadas.
+**Entrega:**
+- Criar `PerplexitySearchToolExecutor` em `packages/tools`
+- Integrar web_search tool no Agent runtime
+- Configurar API key via environment variable
+- Implementar cache de 5 minutos para queries repetidas
+- Deduzir budget por tool calls (1 crédito por tool)
+- Logs completos em DEBUG level para auditoria
+- Testes unitários e integração
+**Teste:** agente realiza busca web com sucesso, cache funciona, budget deduzido.
+
+### Fase 12: Visualização Completa das Ações dos Agentes
 **Objetivo:** painel abrangente no War Room para visualizar todas as ações dos agentes.
 **Entrega:**
 - Componente `AgentActionsPanel` com timeline detalhada
@@ -194,15 +211,15 @@ Teste: 3 agentes rodando em paralelo, decisões sendo feitas.
 - Integração com WebSocket para atualizações em tempo real
 **Teste:** visualização completa de todas as ações de agentes em tempo real.
 
-### Fase 12: Integrações Externas
-Objetivo: adicionar canais externos sem mexer no core.
-Entrega:
+### Fase 13: Integrações Externas
+**Objetivo:** adicionar canais externos sem mexer no core.
+**Entrega:**
 - SDK de adapter
 - Integrações opcionais (Slack, WhatsApp, etc.)
 - Export de resultados (CRM, etc.)
-Teste: fluxo e2e completo por canal externo.
+**Teste:** fluxo e2e completo por canal externo.
 
-### Fase 13: Hardening (FINAL)
+### Fase 14: Hardening (FINAL)
 Objetivo: confiabilidade e segurança operacional em sistema completo.
 Entrega:
 - Retries automáticos em chamadas de LLM
@@ -228,5 +245,5 @@ Teste: cenários de falha (timeout, restart, desconexão) em sistema real.
 ## 12) Princípios de Evolução
 1. **Hardening como ÚLTIMA fase**: Só implementar retries, rate limiting, observabilidade quando o sistema estiver completo e rodando com LLM real.
 2. **Testes manuais antes de autônomos**: Validar toda infraestrutura (API, CLI, repositories) antes de adicionar complexidade de LLM.
-3. **Incremento lógico**: LLM real → Contexto real → Orquestração → CLI → Hardening (não pular etapas).
+3. **Incremento lógico**: LLM real → Contexto real → Orquestração → Web Search → CLI → Hardening (não pular etapas).
 4. **Validação por fase**: Cada fase entregue deve ter testes validando suas funcionalidades.

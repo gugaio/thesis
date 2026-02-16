@@ -5,7 +5,7 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 COPY package.json ./
-RUN corepack enable pnpm && pnpm install
+RUN corepack enable pnpm && pnpm install --ignore-scripts
 
 FROM base AS builder
 WORKDIR /app

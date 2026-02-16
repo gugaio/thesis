@@ -1,12 +1,21 @@
+import { useState } from 'react';
 import type { Vote } from '@/types';
 import { formatRelativeTime, getVerdictColor } from '@/lib/utils';
 import { CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { VoteDialog } from '@/components/ui/VoteDialog';
 
 interface VotesPanelProps {
   votes: Vote[];
 }
 
 export function VotesPanel({ votes }: VotesPanelProps) {
+  const [selectedVote, setSelectedVote] = useState<Vote | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  const handleVoteClick = (vote: Vote) => {
+    setSelectedVote(vote);
+    setIsDialogOpen(true);
+  };
   const voteCounts = votes.reduce(
     (acc, vote) => {
       acc[vote.verdict] = (acc[vote.verdict] || 0) + 1;
@@ -52,7 +61,8 @@ export function VotesPanel({ votes }: VotesPanelProps) {
           votes.map((vote) => (
             <div
               key={vote.id}
-              className="border rounded-lg p-3 bg-card hover:bg-accent/5 transition-colors"
+              onClick={() => handleVoteClick(vote)}
+              className="border rounded-lg p-3 bg-card cursor-pointer hover:shadow-md hover:scale-[1.01] transition-all"
             >
               <div className="flex items-start justify-between mb-2">
                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${getVerdictColor(vote.verdict)}`}>
@@ -70,6 +80,7 @@ export function VotesPanel({ votes }: VotesPanelProps) {
           ))
         )}
       </div>
+      <VoteDialog vote={selectedVote} isOpen={isDialogOpen} onClose={() => setIsDialogOpen(false)} />
     </div>
   );
 }

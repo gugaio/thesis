@@ -22,7 +22,7 @@ export function Timeline({ events }: TimelineProps) {
           events.map((event) => (
             <div
               key={event.id}
-              className="flex gap-3 p-3 border rounded-lg bg-card hover:bg-accent/5 transition-colors"
+              className="flex gap-3 p-3 border rounded-lg bg-card"
             >
               <div className="flex-shrink-0 mt-0.5">
                 {event.type === 'session.created' && (

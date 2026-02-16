@@ -19,7 +19,7 @@ export function AgentsPanel({ agents }: AgentsPanelProps) {
           agents.map((agent) => (
             <div
               key={agent.id}
-              className="border rounded-lg p-4 bg-card hover:bg-accent/5 transition-colors"
+              className="border rounded-lg p-4 bg-card"
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">

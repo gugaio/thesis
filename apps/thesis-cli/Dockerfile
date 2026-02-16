@@ -7,6 +7,7 @@ COPY pnpm-workspace.yaml ./pnpm-workspace.yaml
 COPY pnpm-lock.yaml ./pnpm-lock.yaml
 COPY apps/thesis-cli ./apps/thesis-cli
 COPY packages/protocol ./packages/protocol
+COPY packages/skills ./packages/skills
 COPY tsconfig.base.json ./tsconfig.base.json
 
 RUN npm install -g pnpm@10.29.3 && \

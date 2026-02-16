@@ -352,6 +352,25 @@ const decision = await this.decideAutonomousAction();
 ## 📊 Estatísticas Globais
 
 ```
+✅ Total de Fases Completas: 10/14 (71%)
+✅ Total de Testes: 113+ passando (aproximado)
+✅ Repositories Criados: 11
+✅ API Endpoints: 18
+✅ WebSocket Endpoint: 1
+✅ CLI Commands: 13
+✅ Tabelas do Banco: 10
+✅ Perfis de Agente: 3
+✅ Apps: 4 (api, cli, gateway, war-room)
+✅ Packages: 4 (protocol, prompt-adapter, tools, skills)
+✅ Skills Definidas: 3 (debt, tech, market)
+✅ SOUL.md Global: 1
+✅ BASE_SYSTEM.md Global: 1
+✅ Agentes Autônomos: Verdadeiramente autônomos (LLM decide ações)
+✅ Contexto Real: Dados reais da API (docs, opinions, messages, votes, agents)
+✅ Orquestração Real: 3 agentes paralelos com sincronização
+✅ Comando analyze Real: Funcional com LLM real e contexto completo
+⏳ Web Search: Perplexity API integration planejada (Fase 11)
+```
 ✅ Total de Fases Completas: 10/13 (77%)
 ✅ Total de Testes: 113+ passando (aproximado)
 ✅ Repositories Criados: 11
@@ -428,10 +447,11 @@ thesis/
 │   │   └── package.json
 │   ├── tools/              # Tool registry seguro
 │   │   ├── src/
-│   │   │   ├── types.ts     # Tipos de tool
-│   │   │   ├── registry.ts  # Registry de tools
-│   │   │   ├── bash-tool.ts # Executor bash
-│   │   │   └── index.ts    # Exportações
+│   │   │   ├── types.ts                   # Tipos de tool
+│   │   │   ├── registry.ts                # Registry de tools
+│   │   │   ├── bash-tool.ts              # Executor bash
+│   │   │   ├── perplexity-search-tool.ts  # Executor Perplexity web search (Fase 11)
+│   │   │   └── index.ts                 # Exportações
 │   │   └── package.json
 │   └── skills/             # Definições de skills
 │       ├── BASE_SYSTEM.md # Sistema prompt base para todos os agentes
@@ -482,7 +502,9 @@ thesis/
 | Fase 7 | 11 | ✅ PASS |
 | Fase 8 | 18 | ✅ PASS |
 | Fase 9 | 20 | ✅ PASS |
-| **TOTAL** | **113+** | **✅ PASS** |
+| Fase 10 | 55 | ✅ PASS |
+| Fase 11 | ? | ⏳ PENDENTE |
+| **TOTAL** | **178+** | **✅ PASS** |
 
 ---
 
@@ -947,56 +969,114 @@ CLI (analyze) → Gateway → AgentWorker (LLM real) → API
 
 ## 🎯 Próxima Fase
 
-### 📋 Fase 11: Visualização Completa das Ações dos Agentes
-**Objetivo:** Painel abrangente no War Room para visualizar todas as ações dos agentes em tempo real.
+### 📋 Fase 11: Perplexity Web Search Tool Integration
+**Objetivo:** Integrar Perplexity API para busca web real-time em que agentes podem acessar informações atualizadas.
+
+**Decisões:**
+- **Cache TTL:** 5 minutos
+- **Model Perplexity:** `sonar-pro` (default)
+- **Consume Budget:** Sim, web search deduz créditos
+- **Log Level:** Completo (query visível em DEBUG)
 
 **Entregas:**
-- 🔄 Componente `AgentActionsPanel` com timeline detalhada
-- 🔄 Visualização de todas as ações: opinions, messages, votes, wait
-- 🔄 Exibição do texto completo das mensagens e opiniões
-- 🔄 Indicador de quando um agente está "esperando" (wait action)
-- 🔄 Marcação de mensagens lidas (read_at)
-- 🔄 Filtro por tipo de ação (opinion/message/vote/wait)
-- 🔄 Filtro por agente específico
-- 🔄 Timeline cronológica com timestamps precisos
-- 🔄 Destaque visual para ações recentes
-- 🔄 Scroll automático para ações mais recentes
-- 🔄 Integração com WebSocket para atualizações em tempo real
+- 🔄 Criar `packages/tools/src/perplexity-search-tool.ts` com PerplexitySearchToolExecutor
+- 🔄 Adicionar tipos Perplexity a `packages/tools/src/types.ts`
+- 🔄 Adicionar `web_search` ao `ToolRegistry` em `packages/tools/src/registry.ts`
+- 🔄 Exportar novos tipos/classes em `packages/tools/src/index.ts`
+- 🔄 Integrar tool no Agent em `apps/thesis-agent-runtime/src/agent-worker.ts`
+- 🔄 Implementar dedução de budget por tool calls (1 crédito por tool)
+- 🔄 Adicionar `perplexity_api_key` ao config em `apps/thesis-agent-runtime/src/config.ts`
+- 🔄 Atualizar `.env.example` com `PERPLEXITY_API_KEY`
+- 🔄 Criar testes unitários em `packages/tools/src/__tests__/perplexity-search-tool.test.ts`
+- 🔄 Validar integração em sessão real
 
 **Componentes:**
-- `apps/thesis-war-room/src/components/AgentActionsPanel.tsx` - Painel de ações dos agentes
-- `apps/thesis-war-room/src/types/index.ts` - Tipos para ações dos agentes (se necessário)
-- Atualização de `apps/thesis-war-room/src/app/sessions/[id]/page.tsx` - Adicionar novo painel
+- `packages/tools/src/perplexity-search-tool.ts` - Executor de busca Perplexity
+- `packages/tools/src/types.ts` - Tipos para Perplexity (query, result, cache)
+- `packages/tools/src/registry.ts` - Registry atualizado com web_search
+- `packages/tools/src/index.ts` - Exportações atualizadas
+- `apps/thesis-agent-runtime/src/agent-worker.ts` - Integração no Agent
+- `apps/thesis-agent-runtime/src/config.ts` - Config Perplexity API key
+- `.env.example` - Template com PERPLEXITY_API_KEY
 
 **Funcionalidades:**
-1. **Lista Cronológica de Ações:**
-   - `opinion.posted`: Mostrar agente, conteúdo completo, confiança
-   - `message.sent`: Mostrar remetente, destinatário, conteúdo completo, read_at
-   - `vote.cast`: Mostrar agente, veredito (approve/reject/abstain), rationale
-   - `wait`: Mostrar agente em estado de espera (não executou ação)
-   - `agent.joined`: Mostrar agente entrando na sessão
-   - `agent.waiting`: Mostrar agente aguardando mais contexto
+1. **PerplexitySearchToolExecutor:**
+   - `search(query, apiKey, timeoutMs, maxChars)` - Executar busca via API
+   - Caching em memória com TTL de 5 minutos
+   - Timeout configurável (30s default)
+   - Truncamento de resposta (5KB default)
+   - Tratamento de erros e timeouts
+   - Stats de cache (size, entries)
+   - Limpeza de cache
 
-2. **Visualização do Texto Completo:**
-   - Todas as opiniões e mensagens devem mostrar o texto completo (sem truncamento)
-   - Área scrollável para textos longos
-   - Formatação de código Markdown (se necessário)
+2. **Tool Integration no Agent:**
+   - Web search tool registrada no array `tools` do Agent
+   - Parâmetros: query (obrigatório), model (opcional), maxChars (opcional)
+   - Resposta: content, citations, tookMs, cached, success
+   - Log completo no DEBUG level (query completa visível)
+   - Detalhes incluídos no Ledger
 
-3. **Indicadores de Estado:**
-   - Badge de status da ação (active/complete/waiting)
-   - Timestamp relativo (há 5 minutos)
-   - Ícone do tipo de ação
-   - Avatar/ícone do agente
+3. **Budget Deduction:**
+   - Cada tool call consome 1 crédito
+   - Actions (opinion/message/vote) continuam consumindo 1 crédito
+   - Total cost por iteração = action cost + tool calls cost
+   - Bloqueio quando budget < MIN_CREDITS_BUFFER
 
-4. **Filtros:**
-   - Filtro por tipo de ação (checkboxes)
-   - Filtro por agente (dropdown)
-   - Botão "Mostrar Tudo" / "Ocultar Espera"
+4. **Arquitetura:**
+```
+Agent (LLM) → web_search tool → PerplexitySearchToolExecutor
+                                       ↓
+                              Perplexity API (chat/completions)
+                                       ↓
+                              Resposta com citações + caching
+```
 
-5. **Real-time Updates:**
-   - Scroll automático para ação mais recente
-   - Indicador visual de "novo" para ações recentes
-   - Notificação sonora (opcional) quando agente posta algo
+**Cache Strategy:**
+- Chave: `{model}:{query}`
+- TTL: 5 minutos (300000ms)
+- Storage: Map<string, PerplexityCacheEntry>
+- Hit rate: Logado em DEBUG
+- Clear cache: Método público disponível
+
+**Error Handling:**
+- Timeout: Retorna success=false, timedOut=true, com mensagem de erro
+- API Error: Retorna success=false com detalhes do erro
+- No API Key: Log error e retorna falha
+- Cache Miss: Chama API normalmente
+- Cache Hit: Retorna resposta imediata com cached=true
+
+**Logs no Ledger:**
+```json
+{
+  "toolName": "web_search",
+  "query": "openai gpt-5 release date",
+  "model": "perplexity/sonar-pro",
+  "durationMs": 2334,
+  "success": true,
+  "outputLength": 1234,
+  "citationsCount": 3,
+  "cached": false,
+  "timestamp": "2025-02-16T16:30:47.457Z"
+}
+```
+
+**Testes Unitários:**
+- Mock da API Perplexity
+- Testar chamadas bem-sucedidas
+- Testar cache hit/miss
+- Testar timeout
+- Testar erro de API
+- Testar truncamento de conteúdo
+- Testar modelo customizado
+- Testar cache stats
+- Testar clear cache
+
+**Testes de Integração:**
+- Agente fazendo search real
+- Verificar tool é chamada corretamente
+- Validar resposta formatada
+- Verificar budget deduction
+- Confirmar logs visíveis
 
 **Status:** ⏳ PENDENTE
 
@@ -1018,11 +1098,12 @@ CLI (analyze) → Gateway → AgentWorker (LLM real) → API
 | Fase 8: Contexto Real em Agent Runtime | ✅ COMPLETA | 2026-02-15 | Fetch docs, opinions, etc. |
 | Fase 9: Gateway Orquestração | ✅ COMPLETA | 2026-02-15 | 3 agentes paralelos |
 | Fase 10: Comando CLI analyze Real | ✅ COMPLETA | 2026-02-15 | Análise automatizada funcional |
-| Fase 11: Visualização Completa das Ações dos Agentes | ⏳ PENDENTE | --- | Painel de ações no War Room |
-| Fase 12: Integrações Externas | ⏳ PENDENTE | --- | Slack, WhatsApp, etc. |
-| Fase 13: Hardening (FINAL) | ⏳ PENDENTE | --- | Retries, observabilidade |
+| Fase 11: Perplexity Web Search Tool Integration | ⏳ PENDENTE | --- | Web search com API Perplexity |
+| Fase 12: Visualização Completa das Ações dos Agentes | ⏳ PENDENTE | --- | Painel de ações no War Room |
+| Fase 13: Integrações Externas | ⏳ PENDENTE | --- | Slack, WhatsApp, etc. |
+| Fase 14: Hardening (FINAL) | ⏳ PENDENTE | --- | Retries, observabilidade |
 
-**Progresso:** 10/13 fases completas (77%)
+**Progresso:** 10/14 fases completas (71%)
 
 ---
 
@@ -1063,4 +1144,12 @@ CLI (analyze) → Gateway → AgentWorker (LLM real) → API
 
 **Última Atualização:** 16 de Fevereiro de 2026
 **Versão:** 1.0.0
-**Status:** ✅ Fases 0-10 completas, Próximo: Fase 11 (Visualização Completa das Ações dos Agentes)
+**Status:** ✅ Fases 0-10 completas, Próximo: Fase 11 (Perplexity Web Search Tool Integration)
+
+**Planejamento da Fase 11:**
+- Integração de Perplexity API para busca web em tempo real
+- Tool disponível para todos os agentes automaticamente
+- Cache de 5 minutos para reduzir chamadas duplicadas
+- Dedução de budget por tool calls (1 crédito)
+- Logs completos em DEBUG level para auditoria
+- Testes unitários e integração planejados
