@@ -4,17 +4,16 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useWebSocket } from '@/hooks/useWebSocket';
-import { BentoCard, BentoGrid } from '@/components/bento';
-import { SocialTimelineFeed } from '@/components/social';
-import { AgentIdentityCard } from '@/components/agents';
-import { VotesPanel } from '@/components/VotesPanel';
+import { SessionHeader } from '@/components/session/SessionHeader';
+import { HypothesisPanel } from '@/components/session/HypothesisPanel';
+import { DecisionModule } from '@/components/session/DecisionModule';
+import { AgentsPanel } from '@/components/session/AgentsPanel';
+import { ActivityTimeline } from '@/components/session/ActivityTimeline';
 import { MessagesPanel } from '@/components/MessagesPanel';
-import { ReportSection } from '@/components/ReportSection';
 import { DocumentsList } from '@/components/DocumentsList';
+import { ReportSection } from '@/components/ReportSection';
 import { Button } from '@/components/ui';
-import { Loader2, Wifi, WifiOff, Upload, ArrowLeft, CheckCircle2 } from 'lucide-react';
-import { formatDate, getStatusColor } from '@/lib/utils';
-import { cn } from '@/lib/utils';
+import { Loader2, Wifi, WifiOff, Upload, ArrowLeft } from 'lucide-react';
 
 interface PageProps {
   params: Promise<{
@@ -96,49 +95,26 @@ export default function SessionPage({ params }: PageProps) {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="mb-8"
+        className="mb-6"
       >
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </Link>
-            <div className="h-6 w-px bg-border" />
-            <div className="flex items-center gap-2">
-              <span
-                className={cn('px-3 py-1 rounded-full text-xs font-semibold', getStatusColor(data.session.status))}
-              >
-                {data.session.status.toUpperCase()}
-              </span>
-              {data.session.finalVerdict && (
-                <span
-                  className={cn(
-                    'px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1',
-                    data.session.finalVerdict === 'approve'
-                      ? 'bg-green-50 text-green-700'
-                      : 'bg-red-50 text-red-700'
-                  )}
-                >
-                  <CheckCircle2 className="w-3 h-3" />
-                  {data.session.finalVerdict.toUpperCase()}
-                </span>
-              )}
-            </div>
-          </div>
+          <Link
+            href="/"
+            className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2 text-sm font-medium"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Dashboard
+          </Link>
 
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 text-sm">
               {isConnected ? (
-                <div className="flex items-center gap-1 text-green-600">
+                <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
                   <Wifi className="w-4 h-4" />
                   <span className="hidden sm:inline">Live</span>
                 </div>
               ) : (
-                <div className="flex items-center gap-1 text-gray-600">
+                <div className="flex items-center gap-2 text-gray-600">
                   <WifiOff className="w-4 h-4" />
                   <span className="hidden sm:inline">Offline</span>
                 </div>
@@ -154,81 +130,37 @@ export default function SessionPage({ params }: PageProps) {
               className="flex items-center gap-2"
             >
               <Upload className="w-4 h-4" />
-              {uploading ? 'Uploading...' : 'Upload'}
+              {uploading ? 'Uploading...' : 'Upload Document'}
             </Button>
           </div>
         </div>
       </motion.div>
 
-      <BentoGrid>
-        <BentoCard colSpan="2" className="mb-6">
-          <h2 className="text-xl font-semibold mb-4">Hypothesis</h2>
-          <div className="space-y-3">
-            <div>
-              <p className="text-xs text-muted-foreground mb-1">Statement</p>
-              <p className="text-base font-medium">{data.hypothesis.statement}</p>
-            </div>
-            {data.hypothesis.description && (
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Description</p>
-                <p className="text-sm">{data.hypothesis.description}</p>
-              </div>
-            )}
-            <div className="grid grid-cols-3 gap-3 pt-3 border-t border-border">
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Created</p>
-                <p className="text-sm font-medium">{formatDate(data.session.createdAt)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Status</p>
-                <p className="text-sm font-medium capitalize">{data.session.status}</p>
-              </div>
-              {data.session.closedAt && (
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">Closed</p>
-                  <p className="text-sm font-medium">{formatDate(data.session.closedAt)}</p>
-                </div>
-              )}
-            </div>
+      <div className="space-y-8">
+        <SessionHeader session={data.session} hypothesis={data.hypothesis} votes={data.votes} />
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <HypothesisPanel hypothesis={data.hypothesis} session={data.session} />
+            <MessagesPanel messages={data.messages} agents={data.agents} />
+            <ReportSection
+              session={data.session}
+              hypothesis={data.hypothesis}
+              documents={data.documents}
+              agents={data.agents}
+              opinions={data.opinions}
+              votes={data.votes}
+            />
           </div>
-        </BentoCard>
 
-        <BentoCard colSpan="2" className="mb-6">
-          <VotesPanel votes={data.votes} />
-        </BentoCard>
-
-        <BentoCard colSpan="3" className="mb-6">
-          <SocialTimelineFeed events={data.ledger} />
-        </BentoCard>
-
-        <BentoCard colSpan="1" className="mb-6">
-          <h3 className="text-lg font-semibold mb-4">Agents</h3>
-          <div className="space-y-3">
-            {data.agents.map((agent) => (
-              <AgentIdentityCard key={agent.id} agent={agent} />
-            ))}
+          <div className="space-y-6">
+            <DecisionModule votes={data.votes} />
+            <AgentsPanel agents={data.agents} />
+            <ActivityTimeline events={data.ledger} />
+            <DocumentsList documents={data.documents} sessionId={sessionId || ''} />
           </div>
-        </BentoCard>
-
-        <BentoCard colSpan="2" className="mb-6">
-          <MessagesPanel messages={data.messages} agents={data.agents} />
-        </BentoCard>
-
-        <BentoCard colSpan="2" className="mb-6">
-          <DocumentsList documents={data.documents} sessionId={sessionId || ''} />
-        </BentoCard>
-
-        <BentoCard colSpan="4" className="mb-6">
-          <ReportSection
-            session={data.session}
-            hypothesis={data.hypothesis}
-            documents={data.documents}
-            agents={data.agents}
-            opinions={data.opinions}
-            votes={data.votes}
-          />
-        </BentoCard>
-      </BentoGrid>
+        </div>
+      </div>
     </main>
   );
 }
