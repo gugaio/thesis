@@ -173,15 +173,28 @@ Entrega:
 Teste: 3 agentes rodando em paralelo, decisões sendo feitas.
 
 ### Fase 10: Comando CLI analyze Real
-Objetivo: `analyze --session <id>` funciona de verdade.
-Entrega:
+**Objetivo:** `analyze --session <id>` funciona de verdade.
+**Entrega:**
 - CLI inicia análise automatizada
 - Gateway orquestra agentes
 - Agentes decidem autonomamente com contexto real
 - Progresso visível em tempo real (WebSocket)
-Teste: comando analyze inicia análise completa.
+**Teste:** comando analyze inicia análise completa.
 
-### Fase 11: Integrações Externas
+### Fase 11: Visualização Completa das Ações dos Agentes
+**Objetivo:** painel abrangente no War Room para visualizar todas as ações dos agentes.
+**Entrega:**
+- Componente `AgentActionsPanel` com timeline detalhada
+- Visualização de todas as ações: opinions, messages, votes, wait
+- Exibição do texto completo das mensagens e opiniões
+- Indicador de quando um agente está "esperando" (wait action)
+- Marcação de mensagens lidas (read_at)
+- Filtro por tipo de ação e por agente
+- Timeline cronológica com timestamps precisos
+- Integração com WebSocket para atualizações em tempo real
+**Teste:** visualização completa de todas as ações de agentes em tempo real.
+
+### Fase 12: Integrações Externas
 Objetivo: adicionar canais externos sem mexer no core.
 Entrega:
 - SDK de adapter
@@ -189,7 +202,7 @@ Entrega:
 - Export de resultados (CRM, etc.)
 Teste: fluxo e2e completo por canal externo.
 
-### Fase 12: Hardening (FINAL)
+### Fase 13: Hardening (FINAL)
 Objetivo: confiabilidade e segurança operacional em sistema completo.
 Entrega:
 - Retries automáticos em chamadas de LLM

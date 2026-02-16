@@ -1,5 +1,5 @@
 import type { FastifyRequest } from 'fastify';
-import type { IncomingMessage, Server } from 'http';
+import type { WebSocket } from 'ws';
 import type { SessionRepository } from '../repositories/session.repository.js';
 import type { DocumentRepository } from '../repositories/document.repository.js';
 import type { AgentRepository } from '../repositories/agent.repository.js';
@@ -8,15 +8,6 @@ import type { VoteRepository } from '../repositories/vote.repository.js';
 import type { MessageRepository } from '../repositories/message.repository.js';
 import type { LedgerService } from '../services/ledger.service.js';
 import { broadcastService } from './broadcast.service.js';
-
-type RawServer = Server<typeof IncomingMessage, any>;
-
-type SocketStream = {
-  socket: any;
-  send: (data: any) => void;
-  close: () => void;
-  on: (event: string, handler: any) => void;
-};
 
 interface WebSocketMessage {
   type: 'subscribe' | 'ping';
@@ -33,19 +24,19 @@ export function createWebSocketHandler(
   ledgerService: LedgerService
 ) {
   return async (
-    connection: SocketStream,
+    socket: WebSocket,
     req: FastifyRequest<{ Params: { id: string } }>
   ) => {
     const { id: sessionId } = req.params;
 
     const session = await sessionRepo.findById(sessionId);
     if (!session) {
-      connection.send(JSON.stringify({ type: 'error', message: 'Session not found' }));
-      connection.close();
+      socket.send(JSON.stringify({ type: 'error', message: 'Session not found' }));
+      socket.close();
       return;
     }
 
-    const clientId = broadcastService.addConnection(sessionId, connection);
+    const clientId = broadcastService.addConnection(sessionId, socket);
 
     console.log(`WebSocket client connected: ${clientId} to session ${sessionId}`);
 
@@ -109,14 +100,14 @@ export function createWebSocketHandler(
       clientId,
     };
 
-    connection.send(JSON.stringify(initialState));
+    socket.send(JSON.stringify(initialState));
 
-    connection.on('message', (data: Buffer) => {
+    socket.on('message', (data: Buffer) => {
       try {
         const message: WebSocketMessage = JSON.parse(data.toString());
 
         if (message.type === 'subscribe' && message.sessionId === sessionId) {
-          connection.send(
+          socket.send(
             JSON.stringify({
               type: 'subscribed',
               sessionId,
@@ -124,18 +115,18 @@ export function createWebSocketHandler(
             })
           );
         } else if (message.type === 'ping') {
-          connection.send(JSON.stringify({ type: 'pong', timestamp: new Date().toISOString() }));
+          socket.send(JSON.stringify({ type: 'pong', timestamp: new Date().toISOString() }));
         }
       } catch (error) {
         console.error('Error handling WebSocket message:', error);
       }
     });
 
-    connection.on('close', () => {
+    socket.on('close', () => {
       console.log(`WebSocket client disconnected: ${clientId} from session ${sessionId}`);
     });
 
-    connection.on('error', (error: Error) => {
+    socket.on('error', (error: Error) => {
       console.error(`WebSocket error for client ${clientId}:`, error);
     });
   };

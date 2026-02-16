@@ -38,11 +38,12 @@ interface AgentResult {
   reasoning?: string;
 }
 
-export class AgentWorkerManager {
+ export class AgentWorkerManager {
   private workers: Map<string, Worker> = new Map();
   private activeCount = 0;
   private maxConcurrent: number;
-  private pendingPromises: Map<string, { resolve: (value: AgentResult) => void; reject: (reason?: unknown) => void; timeout: NodeJS.Timeout }> = new Map();
+  private pendingPromises: Map<string, { resolve: (value: AgentResult) => void; reject: (reason?: unknown) => void }> = new Map();
+  private timeoutIds: Map<string, NodeJS.Timeout> = new Map();
 
   constructor(maxConcurrent: number) {
     this.maxConcurrent = maxConcurrent;
@@ -79,60 +80,39 @@ export class AgentWorkerManager {
 
       this.workers.set(agentId, worker);
       this.activeCount++;
+      this.pendingPromises.set(agentId, { resolve, reject });
 
       const timeout = setTimeout(() => {
         console.warn(`[AgentWorkerManager] Agent ${agentId} timeout (${task.iteration_timeout_ms}ms)`);
         worker.terminate();
-        const pending = this.pendingPromises.get(agentId);
-        if (pending) {
-          pending.reject(new Error(`Agent ${agentId} timeout`));
-          this.pendingPromises.delete(agentId);
-          this.activeCount--;
-        }
+        reject(new Error(`Agent ${agentId} timeout`));
       }, task.iteration_timeout_ms);
-
-      this.pendingPromises.set(agentId, { resolve, reject, timeout });
 
       worker.on('message', (msg: WorkerMessage) => {
         if (msg.agent_id !== agentId) {
           return;
         }
 
-        const pending = this.pendingPromises.get(agentId);
-        if (!pending) {
-          console.warn(`[AgentWorkerManager] No pending promise for agent ${agentId}`);
-          return;
-        }
-
         if (msg.type === 'result') {
-          clearTimeout(pending.timeout);
+          clearTimeout(timeout);
           console.log(`[AgentWorkerManager] Agent ${agentId} completed successfully`);
-          pending.resolve(msg.data as AgentResult);
-          this.pendingPromises.delete(agentId);
-          this.activeCount--;
+          resolve(msg.data as AgentResult);
         } else if (msg.type === 'error') {
-          clearTimeout(pending.timeout);
+          clearTimeout(timeout);
           console.error(`[AgentWorkerManager] Agent ${agentId} error:`, msg.data);
-          pending.reject(new Error(msg.data as string));
-          this.pendingPromises.delete(agentId);
-          this.activeCount--;
+          reject(new Error(msg.data as string));
         }
       });
 
       worker.on('error', (err) => {
-        const pending = this.pendingPromises.get(agentId);
-        if (pending) {
-          clearTimeout(pending.timeout);
-          console.error(`[AgentWorkerManager] Agent ${agentId} worker error:`, err);
-          pending.reject(err);
-          this.pendingPromises.delete(agentId);
-          this.activeCount--;
-        }
+        clearTimeout(timeout);
+        console.error(`[AgentWorkerManager] Agent ${agentId} worker error:`, err);
+        reject(err);
       });
     });
   }
 
-  private queueTaskForExistingWorker(task: AgentTask): Promise<AgentResult> {
+   private queueTaskForExistingWorker(task: AgentTask): Promise<AgentResult> {
     const agentId = task.agent_id;
     const worker = this.workers.get(agentId);
 
@@ -145,23 +125,23 @@ export class AgentWorkerManager {
 
       const pending = this.pendingPromises.get(agentId);
       if (pending) {
-        clearTimeout(pending.timeout);
         pending.reject(new Error('Task cancelled by new task'));
-      } else {
-        this.activeCount++;
       }
 
-      const timeout = setTimeout(() => {
-        console.warn(`[AgentWorkerManager] Agent ${agentId} timeout (${task.iteration_timeout_ms}ms)`);
-        const currentPending = this.pendingPromises.get(agentId);
-        if (currentPending) {
-          currentPending.reject(new Error(`Agent ${agentId} timeout`));
-          this.pendingPromises.delete(agentId);
-          this.activeCount--;
-        }
-      }, task.iteration_timeout_ms);
+      // 👇 LIMPAR TIMEOUT ANTERIOR ANTES DE CRIAR NOVO
+      const oldTimeout = this.timeoutIds.get(agentId);
+      if (oldTimeout) {
+        clearTimeout(oldTimeout);
+        console.log(`[AgentWorkerManager] Cleared old timeout for agent ${agentId}`);
+      }
 
-      this.pendingPromises.set(agentId, { resolve, reject, timeout });
+      this.pendingPromises.set(agentId, { resolve, reject });
+
+      const timeout = setTimeout(() => {
+        console.warn(`[AgentWorkerManager] Agent ${agentId} task timeout after 60s`);
+        reject(new Error(`Agent ${agentId} task timeout`));
+        this.timeoutIds.delete(agentId);
+      }, 60000);
 
       worker.postMessage({
         type: 'task',

@@ -352,7 +352,7 @@ const decision = await this.decideAutonomousAction();
 ## 📊 Estatísticas Globais
 
 ```
-✅ Total de Fases Completas: 10/12 (83%)
+✅ Total de Fases Completas: 10/13 (77%)
 ✅ Total de Testes: 113+ passando (aproximado)
 ✅ Repositories Criados: 11
 ✅ API Endpoints: 18
@@ -947,20 +947,62 @@ CLI (analyze) → Gateway → AgentWorker (LLM real) → API
 
 ## 🎯 Próxima Fase
 
-### 📋 Fase 11: Integrações Externas
-**Objetivo:** Integrar com serviços externos (Slack, WhatsApp, etc.).
+### 📋 Fase 11: Visualização Completa das Ações dos Agentes
+**Objetivo:** Painel abrangente no War Room para visualizar todas as ações dos agentes em tempo real.
 
-**Entregas Planejadas:**
-- 🔄 Webhooks para notificações externas
-- 🔄 Integração com Slack para alertas
-- 🔄 Integração com WhatsApp para notificações
-- 🔄 Configuração de canais de comunicação
+**Entregas:**
+- 🔄 Componente `AgentActionsPanel` com timeline detalhada
+- 🔄 Visualização de todas as ações: opinions, messages, votes, wait
+- 🔄 Exibição do texto completo das mensagens e opiniões
+- 🔄 Indicador de quando um agente está "esperando" (wait action)
+- 🔄 Marcação de mensagens lidas (read_at)
+- 🔄 Filtro por tipo de ação (opinion/message/vote/wait)
+- 🔄 Filtro por agente específico
+- 🔄 Timeline cronológica com timestamps precisos
+- 🔄 Destaque visual para ações recentes
+- 🔄 Scroll automático para ações mais recentes
+- 🔄 Integração com WebSocket para atualizações em tempo real
+
+**Componentes:**
+- `apps/thesis-war-room/src/components/AgentActionsPanel.tsx` - Painel de ações dos agentes
+- `apps/thesis-war-room/src/types/index.ts` - Tipos para ações dos agentes (se necessário)
+- Atualização de `apps/thesis-war-room/src/app/sessions/[id]/page.tsx` - Adicionar novo painel
+
+**Funcionalidades:**
+1. **Lista Cronológica de Ações:**
+   - `opinion.posted`: Mostrar agente, conteúdo completo, confiança
+   - `message.sent`: Mostrar remetente, destinatário, conteúdo completo, read_at
+   - `vote.cast`: Mostrar agente, veredito (approve/reject/abstain), rationale
+   - `wait`: Mostrar agente em estado de espera (não executou ação)
+   - `agent.joined`: Mostrar agente entrando na sessão
+   - `agent.waiting`: Mostrar agente aguardando mais contexto
+
+2. **Visualização do Texto Completo:**
+   - Todas as opiniões e mensagens devem mostrar o texto completo (sem truncamento)
+   - Área scrollável para textos longos
+   - Formatação de código Markdown (se necessário)
+
+3. **Indicadores de Estado:**
+   - Badge de status da ação (active/complete/waiting)
+   - Timestamp relativo (há 5 minutos)
+   - Ícone do tipo de ação
+   - Avatar/ícone do agente
+
+4. **Filtros:**
+   - Filtro por tipo de ação (checkboxes)
+   - Filtro por agente (dropdown)
+   - Botão "Mostrar Tudo" / "Ocultar Espera"
+
+5. **Real-time Updates:**
+   - Scroll automático para ação mais recente
+   - Indicador visual de "novo" para ações recentes
+   - Notificação sonora (opcional) quando agente posta algo
 
 **Status:** ⏳ PENDENTE
 
 ---
 
-## 📅 Roadmap Completo (12 Fases)
+## 📅 Roadmap Completo (13 Fases)
 
 | Fase | Status | Data | Descrição |
 |------|--------|------|-----------|
@@ -976,10 +1018,11 @@ CLI (analyze) → Gateway → AgentWorker (LLM real) → API
 | Fase 8: Contexto Real em Agent Runtime | ✅ COMPLETA | 2026-02-15 | Fetch docs, opinions, etc. |
 | Fase 9: Gateway Orquestração | ✅ COMPLETA | 2026-02-15 | 3 agentes paralelos |
 | Fase 10: Comando CLI analyze Real | ✅ COMPLETA | 2026-02-15 | Análise automatizada funcional |
-| Fase 11: Integrações Externas | ⏳ PENDENTE | --- | Slack, WhatsApp, etc. |
-| Fase 12: Hardening (FINAL) | ⏳ PENDENTE | --- | Retries, observabilidade |
+| Fase 11: Visualização Completa das Ações dos Agentes | ⏳ PENDENTE | --- | Painel de ações no War Room |
+| Fase 12: Integrações Externas | ⏳ PENDENTE | --- | Slack, WhatsApp, etc. |
+| Fase 13: Hardening (FINAL) | ⏳ PENDENTE | --- | Retries, observabilidade |
 
-**Progresso:** 10/12 fases completas (83%)
+**Progresso:** 10/13 fases completas (77%)
 
 ---
 
@@ -1018,6 +1061,6 @@ CLI (analyze) → Gateway → AgentWorker (LLM real) → API
 
 ---
 
-**Última Atualização:** 15 de Fevereiro de 2026
+**Última Atualização:** 16 de Fevereiro de 2026
 **Versão:** 1.0.0
-**Status:** ✅ Fases 0-10 completas, Próximo: Fase 11 (Integrações Externas)
+**Status:** ✅ Fases 0-10 completas, Próximo: Fase 11 (Visualização Completa das Ações dos Agentes)

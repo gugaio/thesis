@@ -153,6 +153,7 @@ class GatewayOrchestrator {
 
     for (let i = 0; i < MAX_ITERATIONS && this.running && !this.shouldStop(); i++) {
       this.currentIteration = i + 1;
+      console.log('***************************************************************************\n\n**********************************\n\n*********************')
       console.log(`\n🔄 Iteration ${this.currentIteration}/${MAX_ITERATIONS}`);
 
       const tasks = this.createAgentTasks(sessionId, this.currentIteration);
@@ -251,8 +252,8 @@ class GatewayOrchestrator {
 
   private async postMessage(sessionId: string, result: any) {
     try {
-      const targetProfile = this.getProfileFromAgentId(result.target_agent);
-      if (!targetProfile) {
+      const targetAgentId = this.agentIds.get(result.target_agent);
+      if (!targetAgentId) {
         console.error(`    ❌ Unknown target profile: ${result.target_agent}`);
         return;
       }
@@ -262,7 +263,7 @@ class GatewayOrchestrator {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fromAgentId: result.agent_id,
-          toAgentId: this.agentIds.get(result.target_agent),
+          toAgentId: targetAgentId,
           content: result.content
         })
       });
@@ -300,13 +301,6 @@ class GatewayOrchestrator {
     } catch (error) {
       console.error(`    ❌ Error casting vote:`, error);
     }
-  }
-
-  private getProfileFromAgentId(profile: string): string | null {
-    for (const [role, agentId] of this.agentIds.entries()) {
-      if (agentId === profile) return role;
-    }
-    return null;
   }
 
   private shouldStop(): boolean {

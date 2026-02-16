@@ -207,7 +207,7 @@ Based on the context above, decide what action to take next. You must respond wi
 \`\`\`json
 {
   "action": "opinion" | "message" | "vote" | "wait",
-  "reasoning": "Explain why you chose this action based on the current state",
+  "reasoning": "Explain why you chose this action based on current state",
   "content": "...", // if action is opinion or message
   "target_agent": "debt|tech|market", // if action is message
   "confidence": 0.8, // if action is opinion (0.0 - 1.0)
@@ -216,11 +216,25 @@ Based on the context above, decide what action to take next. You must respond wi
 }
 \`\`\`
 
+**CRITICAL - ACTION VALIDATION:**
+The "action" field MUST be EXACTLY one of these four values (case-sensitive):
+- "opinion" - When you have an analysis or insight to share
+- "message" - When you need to ask another agent for information
+- "vote" - When you have enough evidence to cast a final verdict
+- "wait" - When you need more information or want to conserve credits
+
+**INVALID ACTIONS (DO NOT USE):**
+- "post opinion" ❌
+- "send message" ❌
+- "cast vote" ❌
+- Any other variation ❌
+
 **IMPORTANT:**
 - Provide a clear, detailed reasoning that references specific information from the context
 - Choose the action that best contributes to the collective analysis
 - Be strategic about budget usage
 - Your response must be valid JSON only, no markdown, no extra text
+- Double-check that action is exactly "opinion", "message", "vote", or "wait"
 `;
 
     return systemPrompt + contextSection;
@@ -328,6 +342,7 @@ Based on the context above, decide what action to take next. You must respond wi
         }
       });
 
+      log.debug(`[Worker ${this.profile}] prompting piAgent`);
       this.piAgent?.prompt(prompt).catch((error) => {
         clearTimeout(timeout);
         unsubscribe?.();
@@ -383,7 +398,7 @@ Based on the context above, decide what action to take next. You must respond wi
   }
 
   async runIteration(): Promise<AgentResult> {
-    log.debug(`[Worker ${this.taskId}] Running iteration ${this.iteration}/${this.maxIterations}`);
+    log.debug(`[Worker ${this.profile} ${this.taskId}] Running iteration ${this.iteration}/${this.maxIterations}`);
 
     if (this.iteration > this.maxIterations) {
       log.debug(`[Worker ${this.taskId}] Max iterations reached`);
@@ -441,6 +456,18 @@ Based on the context above, decide what action to take next. You must respond wi
     log.debug(`[Worker ${this.taskId}] Stopping...`);
     this.piAgent = null;
   }
+
+  updateTask(task: AgentTask): void {
+    this.sessionId = task.session_id;
+    this.taskId = task.agent_id;
+    this.profile = task.profile_role as AgentProfile;
+    this.iteration = task.iteration;
+    this.maxIterations = task.max_iterations;
+    this.apiUrl = task.api_url;
+    this.piProvider = task.pi_provider;
+    this.piModel = task.pi_model;
+    this.timeoutMs = task.iteration_timeout_ms;
+  }
 }
 
 async function runWorker() {
@@ -448,33 +475,60 @@ async function runWorker() {
     throw new Error('No worker data provided');
   }
 
-  const task = workerData as AgentTask;
-  const worker = new AgentWorker(task);
+  let currentTask = workerData as AgentTask;
+  const worker = new AgentWorker(currentTask);
 
   parentPort?.on('message', async (msg: WorkerMessage) => {
     if (msg.type === 'stop') {
-      log.debug(`[Worker ${task.agent_id}] Received stop signal`);
+      log.debug(`[Worker ${currentTask.agent_id}] Received stop signal`);
       await worker.stop();
-      parentPort?.postMessage({ type: 'result', agent_id: task.agent_id });
+      parentPort?.postMessage({ type: 'result', agent_id: currentTask.agent_id });
       process.exit(0);
+    } else if (msg.type === 'task' && msg.data) {
+      const newTask = msg.data as AgentTask;
+      log.debug(`[Worker ${newTask.agent_id}] Received new task for iteration ${newTask.iteration}`);
+      currentTask = newTask;
+
+      try {
+        log.debug(`[Worker ${newTask.agent_id}] Starting runIteration for task ${newTask.iteration}`);
+        const result = await worker.runIteration();
+        log.debug(`[Worker ${newTask.agent_id}] runIteration completed with action: ${result.action}`);
+        log.debug(`[Worker ${newTask.agent_id}] Sending result to parent port...`);
+        parentPort?.postMessage({
+          type: 'result',
+          agent_id: newTask.agent_id,
+          data: result,
+        });
+        log.debug(`[Worker ${newTask.agent_id}] Result sent successfully`);
+      } catch (error) {
+        log.error(`[Worker ${newTask.agent_id}] Error:`, error);
+        parentPort?.postMessage({
+          type: 'error',
+          agent_id: newTask.agent_id,
+          data: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
   });
 
   try {
+    log.debug(`[Worker ${currentTask.agent_id}] Starting initial runIteration...`);
     const result = await worker.runIteration();
+    log.debug(`[Worker ${currentTask.agent_id}] Initial runIteration completed with action: ${result.action}`);
+    log.debug(`[Worker ${currentTask.agent_id}] Sending initial result to parent port...`);
     parentPort?.postMessage({
       type: 'result',
-      agent_id: task.agent_id,
+      agent_id: currentTask.agent_id,
       data: result,
     });
+    log.debug(`[Worker ${currentTask.agent_id}] Initial result sent successfully`);
   } catch (error) {
-    log.error(`[Worker ${task.agent_id}] Error:`, error);
+    log.error(`[Worker ${currentTask.agent_id}] Error:`, error);
     parentPort?.postMessage({
       type: 'error',
-      agent_id: task.agent_id,
+      agent_id: currentTask.agent_id,
       data: error instanceof Error ? error.message : String(error),
     });
-    process.exit(1);
   }
 }
 
