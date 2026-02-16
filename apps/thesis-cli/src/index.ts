@@ -612,7 +612,7 @@ program
       console.log('The gateway will create 3 agents (debt, tech, market) and run them in parallel.');
       console.log('');
 
-      const gatewayPath = join(dirname(fileURLToPath(import.meta.url)), '../../apps/thesis-gateway/dist/index.js');
+      const gatewayPath = join(dirname(fileURLToPath(import.meta.url)), '../../thesis-gateway/dist/index.js');
 
       const { spawn } = await import('child_process');
 

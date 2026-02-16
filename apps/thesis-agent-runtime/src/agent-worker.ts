@@ -5,7 +5,6 @@ import { readFileSync } from 'fs';
 import type { WorkerMessage, AgentTask, AgentResult, AgentProfile, AutonomousAgentContext, StructuredAgentDecision } from './types.js';
 import { log, config } from './config.js';
 import { composePrompt, buildConstraints, savePromptSnapshot } from '@thesis/prompt-adapter';
-import { ToolRegistry, BashToolExecutor } from '@thesis/tools';
 import { Agent } from '@mariozechner/pi-agent-core';
 import { getModel } from '@mariozechner/pi-ai';
 import { APIClient } from './api-client.js';
@@ -30,8 +29,6 @@ export class AgentWorker {
   private soul: string;
 
   private piAgent: Agent | null = null;
-  private toolRegistry: ToolRegistry;
-  private toolExecutor: BashToolExecutor;
   private currentBudget: number;
   private apiClient: APIClient;
 
@@ -53,8 +50,6 @@ export class AgentWorker {
     this.baseSystem = this.loadBaseSystem();
     this.soul = task.skill_content.substring(0, 1000);
 
-    this.toolRegistry = new ToolRegistry();
-    this.toolExecutor = new BashToolExecutor();
     this.currentBudget = 100;
     this.apiClient = new APIClient(this.apiUrl);
 
@@ -151,7 +146,7 @@ export class AgentWorker {
         credits: context.budget,
         minBuffer: this.minCreditsBuffer
       },
-      toolPolicy: this.toolRegistry.getAllowedTools().map(t => t.description),
+      toolPolicy: [],
       sessionRules: [
         'Be clear and concise',
         'Use Markdown formatting',

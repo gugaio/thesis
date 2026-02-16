@@ -29,7 +29,7 @@ interface SessionData {
 }
 
 interface AgentInfo {
-  id: string;
+  agentId: string;
   profile: {
     role: string;
     name: string;
@@ -138,8 +138,8 @@ class GatewayOrchestrator {
         }
 
         const result = await response.json() as AgentInfo;
-        this.agentIds.set(profile.role, result.id);
-        console.log(`✅ Registered ${profile.name} (ID: ${result.id})`);
+        this.agentIds.set(profile.role, result.agentId);
+        console.log(`✅ Registered ${profile.name} (ID: ${result.agentId})`);
       } catch (error) {
         console.error(`❌ Error registering ${profile.role} agent:`, error);
         throw error;
