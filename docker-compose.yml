@@ -88,7 +88,6 @@ services:
     working_dir: /app
     environment:
       - API_URL=http://api:4000
-    command: ["node", "apps/thesis-cli/dist/index.js"]
 
   war-room:
     build:

@@ -2,9 +2,9 @@ FROM node:20-alpine AS base
 
 WORKDIR /app
 
-RUN npm install -g pnpm@8.15.0
+RUN npm install -g pnpm@10.29.3
 
-COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 
 RUN pnpm install --frozen-lockfile
 
@@ -18,7 +18,7 @@ WORKDIR /app
 
 COPY --from=base /app/package.json ./package.json
 COPY --from=base /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
-COPY --from=base /app/pnpm-lock.yaml* ./pnpm-lock.yaml
+COPY --from=base /app/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY --from=base /app/apps/thesis-api/package.json ./apps/thesis-api/package.json
 COPY --from=base /app/packages/protocol/package.json ./packages/protocol/package.json
 COPY --from=base /app/apps/thesis-api/dist ./apps/thesis-api/dist
@@ -37,7 +37,7 @@ WORKDIR /app
 
 COPY --from=base /app/package.json ./package.json
 COPY --from=base /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
-COPY --from=base /app/pnpm-lock.yaml* ./pnpm-lock.yaml
+COPY --from=base /app/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY --from=base /app/apps/thesis-gateway/package.json ./apps/thesis-gateway/package.json
 COPY --from=base /app/packages/protocol/package.json ./packages/protocol/package.json
 COPY --from=base /app/apps/thesis-gateway/dist ./apps/thesis-gateway/dist
@@ -51,7 +51,7 @@ WORKDIR /app
 
 COPY --from=base /app/package.json ./package.json
 COPY --from=base /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
-COPY --from=base /app/pnpm-lock.yaml* ./pnpm-lock.yaml
+COPY --from=base /app/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY --from=base /app/apps/thesis-cli/package.json ./apps/thesis-cli/package.json
 COPY --from=base /app/packages/protocol/package.json ./packages/protocol/package.json
 COPY --from=base /app/apps/thesis-cli/dist ./apps/thesis-cli/dist

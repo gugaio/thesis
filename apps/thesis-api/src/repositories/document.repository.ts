@@ -27,7 +27,7 @@ export class DocumentRepository {
 
     const query = `
       INSERT INTO documents (session_id, name, type, size, content_hash, file_path, uploaded_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      VALUES ($1::uuid, $2, $3, $4, $5, $6, $7)
       RETURNING id, name, type, size, uploaded_at, content_hash
     `;
 
