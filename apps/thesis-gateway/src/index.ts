@@ -210,6 +210,15 @@ class GatewayOrchestrator {
 
       console.log(`  🤖 ${result.agent_id}: ${result.action} - ${result.reasoning?.substring(0, 50) || ''}...`);
 
+      if (result.action === 'message') {
+        const contentPreview = result.content ? result.content.substring(0, 100) : '(null)';
+        const contentLength = result.content ? result.content.length : 0;
+        console.log(`    📝 Content preview: ${contentPreview}`);
+        console.log(`    📝 Content length: ${contentLength}`);
+        console.log(`    🎯 Target: ${result.target_agent}`);
+        console.log(`    🔍 Full result keys:`, Object.keys(result));
+      }
+
       switch (result.action) {
         case 'opinion':
           await this.postOpinion(sessionId, result);
@@ -258,6 +267,17 @@ class GatewayOrchestrator {
         return;
       }
 
+      console.log(`    📤 Posting message:`, JSON.stringify({
+        fromAgentId: result.agent_id,
+        toAgentId: targetAgentId,
+        content: result.content?.substring(0, 50) || '(empty)'
+      }));
+
+      if (!result.content || result.content.trim().length === 0) {
+        console.error(`    ❌ Message content is empty, skipping`);
+        return;
+      }
+
       const response = await fetch(`${API_URL}/sessions/${sessionId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -270,6 +290,8 @@ class GatewayOrchestrator {
 
       if (!response.ok) {
         console.error(`    ❌ Failed to post message: ${response.statusText}`);
+        const errorBody = await response.text();
+        console.error(`    ❌ Error body:`, errorBody);
         return;
       }
 

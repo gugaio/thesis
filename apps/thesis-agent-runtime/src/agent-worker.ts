@@ -266,6 +266,43 @@ The "action" field MUST be EXACTLY one of these four values (case-sensitive):
         throw new Error('Missing reasoning in decision');
       }
 
+      if (decision.action === 'message') {
+        if (!decision.content || decision.content.trim().length === 0) {
+          log.warn(`[Worker ${this.taskId}] Message action without content, changing to wait`);
+          return {
+            action: 'wait',
+            reasoning: 'Message content was empty, waiting for next iteration',
+            wait_seconds: 5
+          };
+        }
+        if (!decision.target_agent || !['debt', 'tech', 'market'].includes(decision.target_agent)) {
+          log.warn(`[Worker ${this.taskId}] Message action without valid target_agent: ${decision.target_agent}, changing to wait`);
+          return {
+            action: 'wait',
+            reasoning: 'Invalid target agent, waiting for next iteration',
+            wait_seconds: 5
+          };
+        }
+      }
+
+      if (decision.action === 'opinion' && (!decision.content || decision.content.trim().length === 0)) {
+        log.warn(`[Worker ${this.taskId}] Opinion action without content, changing to wait`);
+        return {
+          action: 'wait',
+          reasoning: 'Opinion content was empty, waiting for next iteration',
+          wait_seconds: 5
+        };
+      }
+
+      if (decision.action === 'vote' && !decision.verdict) {
+        log.warn(`[Worker ${this.taskId}] Vote action without verdict, changing to wait`);
+        return {
+          action: 'wait',
+          reasoning: 'Vote verdict was missing, waiting for next iteration',
+          wait_seconds: 5
+        };
+      }
+
       return decision as StructuredAgentDecision;
     } catch (error) {
       log.warn(`[Worker ${this.taskId}] Failed to parse structured decision, using fallback: ${response.substring(0, 100)}`);
