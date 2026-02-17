@@ -32,7 +32,7 @@ interface AgentTask {
 interface AgentResult {
   agent_id: string;
   iteration: number;
-  action: 'opinion' | 'message' | 'vote' | 'wait';
+  action: 'opinion' | 'message' | 'vote' | 'wait' | 'search';
   content?: string;
   confidence?: number;
   target_agent?: AgentRole;

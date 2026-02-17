@@ -9,6 +9,16 @@ export enum CommandType {
   QUERY_STATUS = 'query_status'
 }
 
+export const GATEWAY_COMMAND_TYPES = ['start', 'ask', 'resume', 'vote'] as const;
+export type GatewayCommandType = typeof GATEWAY_COMMAND_TYPES[number];
+
+export interface GatewayCommandPayload {
+  commandType: GatewayCommandType;
+  issuedBy: string;
+  targetAgentRole?: string;
+  content?: string;
+}
+
 export interface BaseCommand {
   id: string;
   type: CommandType;

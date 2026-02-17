@@ -150,6 +150,13 @@ Teste: fluxo e2e completo por canal externo.
 2. `thesis-gateway` roda local, iniciado via `thesis analyze` (spawn local).
 3. `thesis-cli` e `thesis-war-room` rodam local fora do docker-compose.
 
+## 13) Manutenção do Gateway
+Para facilitar evolução incremental:
+1. `index.ts` deve ficar enxuto (bootstrap).
+2. `session-runner.ts` concentra o loop por sessão.
+3. `runner-state.ts` contém transições puras para testes de fluxo (`idle/resume/vote`).
+4. `api-gateway-client.ts` centraliza chamadas HTTP para a API.
+
 ## 11) Critério de avanço entre fases
 1. testes da fase atual verdes
 2. demo curta reproduzível

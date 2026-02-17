@@ -46,7 +46,11 @@ graph TB
 
 O Gateway é focado em concorrência e gerenciamento de estado local:
 
-- **`src/index.ts`**: Entrypoint. Contém a classe `GatewayOrchestrator`, que implementa a máquina de estados da análise (Fetch Session -> Register Agents -> Main Loop -> Close Session).
+- **`src/index.ts`**: Entrypoint minimalista para o modo local. Apenas inicia `SessionRunner` com config de ambiente.
+- **`src/session-runner.ts`**: Core da sessão. Contém o loop de análise e estado (`running/idle/stopped`), processa ações dos agentes e comandos humanos.
+- **`src/api-gateway-client.ts`**: Cliente HTTP para API (sessão, agents, opiniões, mensagens, votos e fechamento).
+- **`src/runner-state.ts`**: Máquina de transição pura para facilitar manutenção e testes (`idle`, `resume`, `vote`).
+- **`src/logger.ts`**: Logging estruturado com contexto (`session`, `iter`, `action`).
 - **`src/worker-manager.ts`**: Gerenciador de Worker Threads. Abstrai a criação e comunicação com `worker_threads` do Node.js. Garante que se um agente travar ou estourar o timeout, ele seja reiniciado ou encerrado sem derrubar o gateway.
 
 ## Fluxo de Execução (O Loop de Análise)
@@ -92,8 +96,8 @@ sequenceDiagram
 
 ## Componentes Chave
 
-### 1. Gateway Orchestrator
-O cérebro da operação.
+### 1. SessionRunner
+O cérebro da operação por sessão.
 - Mantém a conexão WebSocket com a API para receber eventos em tempo real (ex: "Novo documento adicionado").
 - Controla a condição de parada: 
   - Limite de iterações atingido;

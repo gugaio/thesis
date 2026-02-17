@@ -1,5 +1,5 @@
 import axios, { type AxiosInstance, type AxiosError } from 'axios';
-import type { Session, Document, Event, Agent, OpinionEntry, VerdictType } from '@thesis/protocol';
+import type { Session, Document, Event, Agent, OpinionEntry, VerdictType, GatewayCommandType } from '@thesis/protocol';
 
 export class ApiClient {
   private client: AxiosInstance;
@@ -298,7 +298,7 @@ export class ApiClient {
 
   async issueOrchestratorCommand(
     sessionId: string,
-    commandType: 'ask' | 'resume' | 'vote',
+    commandType: GatewayCommandType,
     issuedBy?: string,
     targetAgentRole?: string,
     content?: string

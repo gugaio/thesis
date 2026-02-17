@@ -1,3 +1,5 @@
+import type { GatewayCommandType } from './commands.js';
+
 export enum EventType {
   SESSION_CREATED = 'session.created',
   DOC_UPLOADED = 'doc.uploaded',
@@ -79,7 +81,7 @@ export interface MessageSentEvent extends BaseEvent {
 
 export interface OrchestratorCommandIssuedEvent extends BaseEvent {
   type: EventType.ORCHESTRATOR_COMMAND_ISSUED;
-  commandType: 'ask' | 'resume' | 'vote';
+  commandType: GatewayCommandType;
   issuedBy: string;
   targetAgentRole?: string;
   content?: string;

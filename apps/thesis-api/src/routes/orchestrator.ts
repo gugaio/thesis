@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import type { EventType, OrchestratorCommandIssuedEvent } from '@thesis/protocol';
+import { GATEWAY_COMMAND_TYPES, type EventType, type GatewayCommandType, type OrchestratorCommandIssuedEvent } from '@thesis/protocol';
 import { randomUUID } from 'crypto';
 import { AGENT_ROLES, type AgentRole } from '@thesis/skills';
 import { SessionRepository } from '../repositories/session.repository.js';
@@ -10,7 +10,7 @@ import { getPool } from '../db/connection.js';
 import { publishEvent } from '../websocket/event-publisher.js';
 
 interface IssueCommandBody {
-  commandType: 'ask' | 'resume' | 'vote';
+  commandType: GatewayCommandType;
   issuedBy?: string;
   targetAgentRole?: string;
   content?: string;
@@ -38,8 +38,8 @@ export async function orchestratorRoutes(fastify: FastifyInstance): Promise<void
         return reply.status(409).send({ error: 'Session is closed' });
       }
 
-      if (!commandType || !['ask', 'resume', 'vote'].includes(commandType)) {
-        return reply.status(400).send({ error: 'commandType must be ask, resume, or vote' });
+      if (!commandType || !GATEWAY_COMMAND_TYPES.includes(commandType)) {
+        return reply.status(400).send({ error: 'commandType must be start, ask, resume, or vote' });
       }
 
       if (commandType === 'ask') {
