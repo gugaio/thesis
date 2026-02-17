@@ -43,68 +43,6 @@ services:
       retries: 3
       start_period: 40s
 
-  gateway:
-    build:
-      context: .
-      dockerfile: apps/thesis-gateway/Dockerfile
-    container_name: thesis-gateway
-    networks:
-      - thesis-network
-    depends_on:
-      - api
-
-  orchestrator:
-    build:
-      context: .
-      dockerfile: apps/thesis-gateway/Dockerfile
-    container_name: thesis-orchestrator
-    environment:
-      - API_URL=http://api:4000
-      - WS_URL=ws://api:4000
-      - MAX_CONCURRENT_AGENTS=3
-      - MAX_ITERATIONS=10
-      - ITERATION_TIMEOUT=60000
-      - PI_PROVIDER=openai
-      - PI_MODEL=gpt-4o-mini
-      - PI_API_KEY=${PI_API_KEY}
-      - LOG_LEVEL=debug
-    networks:
-      - thesis-network
-    depends_on:
-      - api
-
-  cli:
-    build:
-      context: .
-      dockerfile: apps/thesis-cli/Dockerfile
-    container_name: thesis-cli
-    networks:
-      - thesis-network
-    depends_on:
-      - api
-      - gateway
-    stdin_open: true
-    tty: true
-    working_dir: /app
-    environment:
-      - API_URL=http://api:4000
-
-  war-room:
-    build:
-      context: apps/thesis-war-room
-      dockerfile: Dockerfile
-    container_name: thesis-war-room
-    ports:
-      - "4500:4500"
-    environment:
-      - PORT=4500
-      - NEXT_PUBLIC_API_URL=http://localhost:4000
-      - NEXT_PUBLIC_WS_URL=ws://localhost:4000
-    networks:
-      - thesis-network
-    depends_on:
-      - api
-
 volumes:
   postgres-data:
   documents-storage:

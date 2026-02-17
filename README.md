@@ -84,7 +84,7 @@ Versão futura:
 ## 9) Roadmap incremental (com validação)
 ### Fase 0: Foundation
 Objetivo: monorepo, contratos e ambiente docker.
-Entrega: API/CLI/Gateway sobem com comando único.
+Entrega: API + Postgres sobem com comando único em docker; CLI e Gateway rodam localmente.
 Teste: build + lint + testes base verdes.
 
 ### Fase 1: Ledger + Sessão (MVP 1)
@@ -144,6 +144,11 @@ Teste: fluxo e2e completo por canal externo.
 3. Dockerization: ambiente reproduzível.
 4. Verification: executar comandos reais da fase antes de entregar.
 5. Evidence: anexar checklist de teste com resultado.
+
+## 12) Modo operacional atual
+1. Docker Compose sobe apenas serviços de infraestrutura e API (`postgres` e `api`).
+2. `thesis-gateway` roda local, iniciado via `thesis analyze` (spawn local).
+3. `thesis-cli` e `thesis-war-room` rodam local fora do docker-compose.
 
 ## 11) Critério de avanço entre fases
 1. testes da fase atual verdes
