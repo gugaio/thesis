@@ -154,8 +154,10 @@ Teste: fluxo e2e completo por canal externo.
 Para facilitar evolução incremental:
 1. `index.ts` deve ficar enxuto (bootstrap).
 2. `session-runner.ts` concentra o loop por sessão.
-3. `runner-state.ts` contém transições puras para testes de fluxo (`idle/resume/vote`).
-4. `api-gateway-client.ts` centraliza chamadas HTTP para a API.
+3. `command-dispatcher.ts` aplica comandos humanos sem acoplar ao loop.
+4. `websocket-event-parser.ts` valida eventos WS antes de processar comandos.
+5. `runner-state.ts` contém transições puras para testes de fluxo (`idle/resume/vote`).
+6. `api-gateway-client.ts` centraliza chamadas HTTP para a API.
 
 ## 11) Critério de avanço entre fases
 1. testes da fase atual verdes

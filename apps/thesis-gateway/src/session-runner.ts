@@ -5,8 +5,10 @@ import { AGENTS_CONFIG, type AgentRole } from '@thesis/skills';
 import { AgentWorkerManager } from './worker-manager.js';
 import { ApiGatewayClient } from './api-gateway-client.js';
 import { logError, logInfo, logWarn } from './logger.js';
-import { transitionAfterCommand, transitionAfterIteration } from './runner-state.js';
-import type { GatewayCommandEvent, GatewayRunnerConfig, RunnerState, SessionVote, WebSocketEnvelope } from './types.js';
+import { transitionAfterIteration } from './runner-state.js';
+import { parseGatewayCommandEventMessage } from './websocket-event-parser.js';
+import { dispatchGatewayCommand } from './command-dispatcher.js';
+import type { GatewayCommandEvent, GatewayRunnerConfig, RunnerState, SessionVote } from './types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -73,10 +75,11 @@ export class SessionRunner {
       });
 
       this.ws.on('message', (data: Buffer) => {
-        const payload = JSON.parse(data.toString()) as WebSocketEnvelope;
-        if (payload.type === 'event' && payload.data?.type === 'orchestrator.command_issued') {
-          this.handleGatewayCommand(payload.data as unknown as GatewayCommandEvent);
+        const event = parseGatewayCommandEventMessage(data);
+        if (!event || event.sessionId !== this.sessionId) {
+          return;
         }
+        this.handleGatewayCommand(event);
       });
     });
   }
@@ -284,36 +287,19 @@ export class SessionRunner {
   }
 
   private handleGatewayCommand(event: GatewayCommandEvent): void {
-    if (event.commandType === 'start') {
-      return;
-    }
-
-    const commandTransition = transitionAfterCommand({
-      commandType: event.commandType,
+    const dispatch = dispatchGatewayCommand({
+      event,
       currentForcedVoteRound: this.forcedVoteRound,
+      currentInstructions: this.pendingInstructions,
     });
-    this.state = commandTransition.state;
-    this.forcedVoteRound = commandTransition.forcedVoteRound;
 
-    if (event.commandType === 'ask') {
-      if (!event.targetAgentRole || !event.content) {
-        return;
-      }
-      const current = this.pendingInstructions.get(event.targetAgentRole) ?? [];
-      current.push(event.content);
-      this.pendingInstructions.set(event.targetAgentRole, current);
+    this.state = dispatch.nextState;
+    this.forcedVoteRound = dispatch.nextForcedVoteRound;
+    this.pendingInstructions = dispatch.nextInstructions;
+
+    if (dispatch.shouldWake) {
+      this.wakeLoop();
     }
-
-    if (event.commandType === 'vote') {
-      for (const profile of AGENTS_CONFIG) {
-        const role = profile.role as AgentRole;
-        const current = this.pendingInstructions.get(role) ?? [];
-        current.push('Human command: start voting round now. Vote if you have enough evidence.');
-        this.pendingInstructions.set(role, current);
-      }
-    }
-
-    this.wakeLoop();
   }
 
   private waitForCommand(): Promise<void> {

@@ -48,6 +48,8 @@ O Gateway é focado em concorrência e gerenciamento de estado local:
 
 - **`src/index.ts`**: Entrypoint minimalista para o modo local. Apenas inicia `SessionRunner` com config de ambiente.
 - **`src/session-runner.ts`**: Core da sessão. Contém o loop de análise e estado (`running/idle/stopped`), processa ações dos agentes e comandos humanos.
+- **`src/command-dispatcher.ts`**: Regras de aplicação de comandos (`ask/resume/vote`) separadas do loop.
+- **`src/websocket-event-parser.ts`**: Parser/validador de eventos WS para evitar cast solto e payload inválido.
 - **`src/api-gateway-client.ts`**: Cliente HTTP para API (sessão, agents, opiniões, mensagens, votos e fechamento).
 - **`src/runner-state.ts`**: Máquina de transição pura para facilitar manutenção e testes (`idle`, `resume`, `vote`).
 - **`src/logger.ts`**: Logging estruturado com contexto (`session`, `iter`, `action`).
