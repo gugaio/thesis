@@ -25,12 +25,13 @@ export class SessionRunner {
   private wakeResolver: (() => void) | null = null;
   private pendingInstructions: Map<AgentRole, string[]> = new Map();
   private forcedVoteRound = false;
+  private sentMessageFingerprints: Set<string> = new Set();
 
   constructor(
     private readonly sessionId: string,
     private readonly config: GatewayRunnerConfig
   ) {
-    this.workerManager = new AgentWorkerManager(AGENTS_CONFIG.length);
+    this.workerManager = new AgentWorkerManager(this.config.maxConcurrentAgents);
     this.apiClient = new ApiGatewayClient(config.apiUrl);
   }
 
@@ -48,6 +49,7 @@ export class SessionRunner {
 
     await this.connectWebSocket();
     await this.registerAgents();
+    await this.syncVotes();
     await this.runLoop();
   }
 
@@ -115,13 +117,24 @@ export class SessionRunner {
       logInfo({ sessionId: this.sessionId, iteration: this.currentIteration }, 'Starting iteration');
 
       const tasks = this.createAgentTasks();
-      const results = await Promise.all(tasks.map(task => this.workerManager.runAgentTask(task)));
+      const results = tasks.length > 0
+        ? await Promise.all(tasks.map(task => this.workerManager.runAgentTask(task)))
+        : [];
       const allWaiting = await this.processResults(results);
+      const voteDecisionReached = await this.shouldCloseByVotes();
+
+      if (voteDecisionReached) {
+        logInfo({ sessionId: this.sessionId }, 'Vote quorum reached; closing session');
+        await this.closeSession();
+        this.running = false;
+        this.state = 'stopped';
+        break;
+      }
 
       const iterationTransition = transitionAfterIteration({
         allWaiting,
         forcedVoteRound: this.forcedVoteRound,
-        allVoted: this.votes.size === AGENTS_CONFIG.length,
+        allVoted: this.votes.size === this.agentIds.size,
       });
 
       this.state = iterationTransition.state;
@@ -147,10 +160,14 @@ export class SessionRunner {
   private createAgentTasks() {
     return AGENTS_CONFIG.map(profile => {
       const role = profile.role as AgentRole;
+      const agentId = this.agentIds.get(role);
+      if (!agentId || this.votes.has(agentId)) {
+        return null;
+      }
       const instructions = this.pendingInstructions.get(role) ?? [];
       return {
         session_id: this.sessionId,
-        agent_id: this.agentIds.get(role)!,
+        agent_id: agentId,
         profile_role: role,
         skill_path: join(__dirname, '../../../packages/skills', profile.skillFile),
         skill_content: '',
@@ -160,11 +177,12 @@ export class SessionRunner {
         ws_url: this.config.wsUrl,
         pi_provider: this.config.piProvider,
         pi_model: this.config.piModel,
+        preferred_language: this.config.preferredLanguage,
         iteration_timeout_ms: this.config.iterationTimeout,
         forced_vote: this.forcedVoteRound,
         human_instructions: instructions,
       };
-    }).map(task => {
+    }).filter((task): task is NonNullable<typeof task> => Boolean(task)).map(task => {
       this.pendingInstructions.delete(task.profile_role);
       return task;
     });
@@ -228,6 +246,11 @@ export class SessionRunner {
       return;
     }
 
+    const fingerprint = this.buildMessageFingerprint(result.agent_id, targetAgentId, result.content);
+    if (this.sentMessageFingerprints.has(fingerprint)) {
+      return;
+    }
+
     const response = await this.apiClient.postMessage(this.sessionId, {
       fromAgentId: result.agent_id,
       toAgentId: targetAgentId,
@@ -236,10 +259,17 @@ export class SessionRunner {
 
     if (!response.ok) {
       logWarn({ sessionId: this.sessionId, iteration: this.currentIteration, action: 'message' }, `Failed posting message: ${response.statusText}`);
+      return;
     }
+
+    this.sentMessageFingerprints.add(fingerprint);
   }
 
   private async castVote(result: any): Promise<void> {
+    if (this.votes.has(result.agent_id)) {
+      return;
+    }
+
     const response = await this.apiClient.castVote(this.sessionId, {
       agentId: result.agent_id,
       verdict: result.verdict,
@@ -248,11 +278,54 @@ export class SessionRunner {
 
     if (!response.ok) {
       const errorBody = await response.text();
+      if (response.status === 409 && errorBody.toLowerCase().includes('already voted')) {
+        this.votes.add(result.agent_id);
+        return;
+      }
       logWarn({ sessionId: this.sessionId, iteration: this.currentIteration, action: 'vote' }, `Failed casting vote: ${response.statusText} - ${errorBody}`);
       return;
     }
 
     this.votes.add(result.agent_id);
+  }
+
+  private buildMessageFingerprint(fromAgentId: string, toAgentId: string, content: string): string {
+    const normalizedContent = content.trim().replace(/\s+/g, ' ').toLowerCase();
+    return `${fromAgentId}:${toAgentId}:${normalizedContent}`;
+  }
+
+  private async syncVotes(): Promise<void> {
+    try {
+      const votes = await this.apiClient.listVotes(this.sessionId);
+      votes.forEach(vote => {
+        this.votes.add(vote.agentId);
+      });
+    } catch (error) {
+      logWarn({ sessionId: this.sessionId }, `Failed to sync votes: ${(error as Error).message}`);
+    }
+  }
+
+  private async shouldCloseByVotes(): Promise<boolean> {
+    let votes: SessionVote[];
+    try {
+      votes = await this.apiClient.listVotes(this.sessionId);
+    } catch (error) {
+      logWarn({ sessionId: this.sessionId }, `Failed to evaluate quorum: ${(error as Error).message}`);
+      return false;
+    }
+
+    votes.forEach(vote => this.votes.add(vote.agentId));
+
+    const totalAgents = this.agentIds.size;
+    if (totalAgents === 0) {
+      return false;
+    }
+
+    const approveCount = votes.filter(v => v.verdict === 'approve').length;
+    const rejectCount = votes.filter(v => v.verdict === 'reject').length;
+    const quorum = Math.floor(totalAgents / 2) + 1;
+
+    return approveCount >= quorum || rejectCount >= quorum || votes.length >= totalAgents;
   }
 
   private async closeSession(): Promise<void> {

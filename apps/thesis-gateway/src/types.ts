@@ -49,6 +49,8 @@ export interface GatewayRunnerConfig {
   maxIterations: number;
   iterationTimeout: number;
   iterationDelay: number;
+  maxConcurrentAgents: number;
   piProvider: string;
   piModel: string;
+  preferredLanguage: string;
 }

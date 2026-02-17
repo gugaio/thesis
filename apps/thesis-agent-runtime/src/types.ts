@@ -85,6 +85,7 @@ export interface AgentTask {
   ws_url: string;
   pi_provider: string;
   pi_model: string;
+  preferred_language?: string;
   iteration_timeout_ms: number;
   forced_vote?: boolean;
   human_instructions?: string[];

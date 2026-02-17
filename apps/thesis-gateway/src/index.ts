@@ -9,8 +9,10 @@ const WS_URL = process.env.WS_URL || 'ws://localhost:4000';
 const MAX_ITERATIONS = parseInt(process.env.MAX_ITERATIONS || '10', 10);
 const ITERATION_TIMEOUT = parseInt(process.env.ITERATION_TIMEOUT || '60000', 10);
 const ITERATION_DELAY = parseInt(process.env.ITERATION_DELAY || '2000', 10);
+const MAX_CONCURRENT_AGENTS = parseInt(process.env.MAX_CONCURRENT_AGENTS || '2', 10);
 const PI_PROVIDER = process.env.PI_PROVIDER || 'openai';
 const PI_MODEL = process.env.PI_MODEL || 'gpt-4o-mini';
+const PREFERRED_LANGUAGE = process.env.PREFERRED_LANGUAGE || 'pt-BR';
 
 async function main(): Promise<void> {
   const sessionId = process.argv[2];
@@ -26,8 +28,10 @@ async function main(): Promise<void> {
     maxIterations: MAX_ITERATIONS,
     iterationTimeout: ITERATION_TIMEOUT,
     iterationDelay: ITERATION_DELAY,
+    maxConcurrentAgents: MAX_CONCURRENT_AGENTS,
     piProvider: PI_PROVIDER,
     piModel: PI_MODEL,
+    preferredLanguage: PREFERRED_LANGUAGE,
   });
 
   process.on('SIGTERM', () => {

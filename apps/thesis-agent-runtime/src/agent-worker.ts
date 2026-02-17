@@ -24,6 +24,7 @@ export class AgentWorker {
   private apiUrl: string;
   private piProvider: string;
   private piModel: string;
+  private preferredLanguage: string;
   private timeoutMs: number;
   private forcedVote: boolean;
   private humanInstructions: string[];
@@ -48,6 +49,7 @@ export class AgentWorker {
     this.apiUrl = task.api_url;
     this.piProvider = task.pi_provider;
     this.piModel = task.pi_model;
+    this.preferredLanguage = task.preferred_language || 'pt-BR';
     this.timeoutMs = task.iteration_timeout_ms;
     this.forcedVote = task.forced_vote ?? false;
     this.humanInstructions = task.human_instructions ?? [];
@@ -98,23 +100,26 @@ export class AgentWorker {
 
     const previousOpinions = opinions
       .filter(o => o.agentId !== this.taskId)
+      .slice(-8)
       .map(o => ({
         agent_id: o.agentId,
         profile: agentMap.get(o.agentId) || 'debt',
-        content: o.content,
+        content: this.sanitizeText(o.content, 900),
         confidence: o.confidence
       }));
 
     const previousMessages = messages
       .filter(m => m.fromAgentId === this.taskId || m.toAgentId === this.taskId)
+      .slice(-10)
       .map(m => ({
         from_agent: agentMap.get(m.fromAgentId) || 'debt',
         to_agent: agentMap.get(m.toAgentId) || 'debt',
-        content: m.content
+        content: this.sanitizeText(m.content, 700)
       }));
 
     const previousVotes = votes
       .filter(v => v.agentId !== this.taskId)
+      .slice(-8)
       .map(v => ({
         agent_id: v.agentId,
         profile: agentMap.get(v.agentId) || 'debt',
@@ -153,10 +158,11 @@ export class AgentWorker {
       },
       toolPolicy: [],
       sessionRules: [
-        'Be clear and concise',
-        'Use Markdown formatting',
-        'Include confidence levels (0.0 - 1.0)',
-        'Cite specific evidence from documents'
+        'Seja claro e objetivo',
+        'Responda em português brasileiro',
+        'Use Markdown quando fizer sentido',
+        'Inclua nível de confiança (0.0 - 1.0)',
+        'Cite evidências específicas dos documentos'
       ]
     });
 
@@ -227,10 +233,19 @@ ${this.getActionPrompt(this.profile)}
 - Be strategic about budget usage
 - Your response must be valid JSON only, no markdown, no extra text
 - Double-check that action is exactly "opinion", "message", "vote", or "wait"
+- All textual fields in the JSON response must be in ${this.preferredLanguage}
 ${this.forcedVote ? '\n- HUMAN COMMAND ACTIVE: You should prefer action "vote" in this iteration unless a critical blocker prevents voting' : ''}
 `;
 
     return systemPrompt + contextSection;
+  }
+
+  private sanitizeText(value: string, maxLength: number): string {
+    const normalized = value.replace(/\s+/g, ' ').trim();
+    if (normalized.length <= maxLength) {
+      return normalized;
+    }
+    return normalized.slice(0, maxLength);
   }
 
   private getActionPrompt(profile: AgentProfile): string {
@@ -401,7 +416,7 @@ The "action" field MUST be EXACTLY one of these four values (case-sensitive):
     }
   }
 
-  private async callLLM(prompt: string): Promise<string> {
+  private async callLLMOnce(prompt: string): Promise<string> {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         log.warn(`[Worker ${this.taskId}] LLM call timeout after ${this.timeoutMs}ms`);
@@ -446,6 +461,42 @@ The "action" field MUST be EXACTLY one of these four values (case-sensitive):
         reject(error);
       });
     });
+  }
+
+  private extractRetryDelayMs(errorMessage: string): number | null {
+    const match = errorMessage.match(/try again in\s+([\d.]+)\s*(ms|s)?/i);
+    if (!match) {
+      return null;
+    }
+    const value = Number(match[1]);
+    if (Number.isNaN(value) || value <= 0) {
+      return null;
+    }
+    const unit = match[2]?.toLowerCase() || 's';
+    return unit === 'ms' ? Math.ceil(value) : Math.ceil(value * 1000);
+  }
+
+  private async callLLM(prompt: string): Promise<string> {
+    const maxAttempts = 3;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        return await this.callLLMOnce(prompt);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const isRateLimit = message.toLowerCase().includes('rate limit');
+        if (!isRateLimit || attempt === maxAttempts) {
+          throw error;
+        }
+        const parsedDelay = this.extractRetryDelayMs(message);
+        const backoffDelay = Math.min(15000, 1000 * (2 ** (attempt - 1)));
+        const delayMs = (parsedDelay ?? backoffDelay) + Math.floor(Math.random() * 250);
+        log.warn(`[Worker ${this.taskId}] Rate limit detected, retrying in ${delayMs}ms (attempt ${attempt + 1}/${maxAttempts})`);
+        await this.sleep(delayMs);
+      }
+    }
+
+    throw new Error('LLM call failed after retries');
   }
 
   private getProfileDescription(profile: AgentProfile): string {
@@ -561,9 +612,14 @@ The "action" field MUST be EXACTLY one of these four values (case-sensitive):
     this.apiUrl = task.api_url;
     this.piProvider = task.pi_provider;
     this.piModel = task.pi_model;
+    this.preferredLanguage = task.preferred_language || this.preferredLanguage;
     this.timeoutMs = task.iteration_timeout_ms;
     this.forcedVote = task.forced_vote ?? false;
     this.humanInstructions = task.human_instructions ?? [];
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
 
@@ -585,6 +641,7 @@ async function runWorker() {
       const newTask = msg.data as AgentTask;
       log.debug(`[Worker ${newTask.agent_id}] Received new task for iteration ${newTask.iteration}`);
       currentTask = newTask;
+      worker.updateTask(newTask);
 
       try {
         log.debug(`[Worker ${newTask.agent_id}] Starting runIteration for task ${newTask.iteration}`);
