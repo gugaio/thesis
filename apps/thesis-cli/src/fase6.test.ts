@@ -92,13 +92,13 @@ describe('Fase 6 - Integration Tests', () => {
       }
     });
 
-    it('should have updated docker-compose.yml with orchestrator', async () => {
+    it('should have docker-compose.yml with only api service stack', async () => {
       const fs = await import('fs');
       const content = fs.readFileSync(path.join(PROJECT_ROOT, 'docker-compose.yml'), 'utf-8');
       
-      expect(content).toContain('orchestrator:');
-      expect(content).toContain('MAX_CONCURRENT_AGENTS=3');
-      expect(content).toContain('MAX_ITERATIONS=10');
+      expect(content).toContain('postgres:');
+      expect(content).toContain('api:');
+      expect(content).not.toContain('orchestrator:');
     });
   });
 });
