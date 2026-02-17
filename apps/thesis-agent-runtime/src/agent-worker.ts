@@ -203,8 +203,59 @@ ${context.final_verdict ? `## Final Verdict\n${context.final_verdict}` : ''}
 
 # Your Task
 
-Based on the context above, decide what action to take next. You must respond with a valid JSON object following this structure:
+${this.getActionPrompt(this.profile)}
 
+**MESSAGE HANDLING:**
+- Check the "Previous Messages" section for messages addressed TO you
+  (where {to_agent} matches your profile: ${context.profile})
+- If you receive a message, you SHOULD respond with:
+  - "message" - to answer questions or continue the conversation
+  - "opinion" - to provide requested analysis
+  - "vote" - only if you have sufficient evidence to decide
+- Only use "wait" if you have NO pending messages AND genuinely need more information
+
+**IMPORTANT:**
+- Provide a clear, detailed reasoning that references specific information from the context
+- Choose the action that best contributes to the collective analysis
+- Be strategic about budget usage
+- Your response must be valid JSON only, no markdown, no extra text
+- Double-check that action is exactly "opinion", "message", "vote", or "wait"
+`;
+
+    return systemPrompt + contextSection;
+  }
+
+  private getActionPrompt(profile: AgentProfile): string {
+    if (profile === 'research') {
+      return `
+\`\`\`json
+{
+  "action": "opinion" | "message" | "vote" | "wait" | "search",
+  "reasoning": "Explain why you chose this action based on current state",
+  "content": "...", // if action is opinion, message, or search
+  "target_agent": "debt|tech|market", // if action is message
+  "confidence": 0.8, // if action is opinion (0.0 - 1.0)
+  "verdict": "approve|reject|abstain", // if action is vote
+  "wait_seconds": 5 // if action is wait
+}
+\`\`\`
+
+**CRITICAL - ACTION VALIDATION:**
+The "action" field MUST be EXACTLY one of these five values (case-sensitive):
+- "opinion" - When you have an analysis or insight to share
+- "message" - When you need to ask another agent for information
+- "vote" - When you have enough evidence to cast a final verdict
+- "wait" - When you need more information or want to conserve credits
+- "search" - When you need to find external information to answer a question or validate a claim
+
+**INVALID ACTIONS (DO NOT USE):**
+- "post opinion" ❌
+- "send message" ❌
+- "cast vote" ❌
+- Any other variation ❌`;
+    }
+
+    return `
 \`\`\`json
 {
   "action": "opinion" | "message" | "vote" | "wait",
@@ -228,26 +279,7 @@ The "action" field MUST be EXACTLY one of these four values (case-sensitive):
 - "post opinion" ❌
 - "send message" ❌
 - "cast vote" ❌
-- Any other variation ❌
-
-**MESSAGE HANDLING:**
-- Check the "Previous Messages" section for messages addressed TO you
-  (where {to_agent} matches your profile: ${context.profile})
-- If you receive a message, you SHOULD respond with:
-  - "message" - to answer questions or continue the conversation
-  - "opinion" - to provide requested analysis
-  - "vote" - only if you have sufficient evidence to decide
-- Only use "wait" if you have NO pending messages AND genuinely need more information
-
-**IMPORTANT:**
-- Provide a clear, detailed reasoning that references specific information from the context
-- Choose the action that best contributes to the collective analysis
-- Be strategic about budget usage
-- Your response must be valid JSON only, no markdown, no extra text
-- Double-check that action is exactly "opinion", "message", "vote", or "wait"
-`;
-
-    return systemPrompt + contextSection;
+- Any other variation ❌`;
   }
 
   private parseStructuredDecision(response: string): StructuredAgentDecision {
@@ -259,7 +291,7 @@ The "action" field MUST be EXACTLY one of these four values (case-sensitive):
 
       const decision = JSON.parse(cleaned);
 
-      if (!decision.action || !['opinion', 'message', 'vote', 'wait'].includes(decision.action)) {
+      if (!decision.action || !['opinion', 'message', 'vote', 'wait', 'search'].includes(decision.action)) {
         throw new Error(`Invalid action: ${decision.action}`);
       }
 
@@ -304,10 +336,19 @@ The "action" field MUST be EXACTLY one of these four values (case-sensitive):
         };
       }
 
+      if (decision.action === 'search' && (!decision.content || decision.content.trim().length === 0)) {
+        log.warn(`[Worker ${this.taskId}] Search action without content (query), changing to wait`);
+        return {
+          action: 'wait',
+          reasoning: 'Search query was empty, waiting for next iteration',
+          wait_seconds: 5
+        };
+      }
+
       return decision as StructuredAgentDecision;
     } catch (error) {
       log.warn(`[Worker ${this.taskId}] Failed to parse structured decision, using fallback: ${response.substring(0, 100)}`);
-      
+
       return {
         action: 'wait',
         reasoning: 'Failed to parse LLM response, waiting for next iteration',
@@ -488,6 +529,9 @@ The "action" field MUST be EXACTLY one of these four values (case-sensitive):
     if (decision.action === 'opinion' || decision.action === 'message' || decision.action === 'vote') {
       this.currentBudget -= 1;
       log.debug(`[Worker ${this.taskId}] Budget deducted: ${this.currentBudget} credits remaining`);
+    } else if (decision.action === 'search') {
+      this.currentBudget -= 2; // Search is more expensive
+      log.debug(`[Worker ${this.taskId}] Budget deducted for search: ${this.currentBudget} credits remaining`);
     }
 
     return result;

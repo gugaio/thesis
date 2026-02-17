@@ -3,7 +3,6 @@ import type { OpinionPostedEvent, EventType } from '@thesis/protocol';
 import { randomUUID } from 'crypto';
 import { OpinionRepository } from '../repositories/opinion.repository.js';
 import { AgentRepository } from '../repositories/agent.repository.js';
-import { AgentProfileRepository } from '../repositories/agent-profile.repository.js';
 import { LedgerRepository } from '../repositories/ledger.repository.js';
 import { LedgerService } from '../services/ledger.service.js';
 import { getPool } from '../db/connection.js';
@@ -18,8 +17,7 @@ interface PostOpinionBody {
 export async function opinionRoutes(fastify: FastifyInstance): Promise<void> {
   const pool = getPool();
   const opinionRepo = new OpinionRepository(pool);
-  const profileRepo = new AgentProfileRepository(pool);
-  const agentRepo = new AgentRepository(pool, profileRepo);
+  const agentRepo = new AgentRepository(pool);
   const ledgerRepo = new LedgerRepository(pool);
   const ledgerService = new LedgerService(ledgerRepo);
 

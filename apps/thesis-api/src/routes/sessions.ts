@@ -5,7 +5,6 @@ import { SessionRepository } from '../repositories/session.repository.js';
 import { HypothesisRepository } from '../repositories/hypothesis.repository.js';
 import { DocumentRepository } from '../repositories/document.repository.js';
 import { AgentRepository } from '../repositories/agent.repository.js';
-import { AgentProfileRepository } from '../repositories/agent-profile.repository.js';
 import { VoteRepository } from '../repositories/vote.repository.js';
 import { OpinionRepository } from '../repositories/opinion.repository.js';
 import { AgentRankingRepository } from '../repositories/agent-ranking.repository.js';
@@ -29,8 +28,7 @@ export async function sessionRoutes(fastify: FastifyInstance): Promise<void> {
   const hypothesisRepo = new HypothesisRepository(pool);
   const sessionRepo = new SessionRepository(pool, hypothesisRepo);
   const documentRepo = new DocumentRepository(pool);
-  const profileRepo = new AgentProfileRepository(pool);
-  const agentRepo = new AgentRepository(pool, profileRepo);
+  const agentRepo = new AgentRepository(pool);
   const voteRepo = new VoteRepository(pool);
   const opinionRepo = new OpinionRepository(pool);
   const rankingRepo = new AgentRankingRepository(pool);

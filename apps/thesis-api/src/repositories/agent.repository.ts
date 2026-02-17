@@ -1,7 +1,7 @@
 import type { Pool } from 'pg';
 import { randomUUID } from 'crypto';
 import type { Agent } from '@thesis/protocol';
-import { AgentProfileRepository } from './agent-profile.repository.js';
+import { getAgentConfig, type AgentProfile } from '@thesis/skills';
 
 export interface JoinSessionInput {
   sessionId: string;
@@ -10,18 +10,20 @@ export interface JoinSessionInput {
 }
 
 export class AgentRepository {
-  constructor(
-    private readonly pool: Pool,
-    private readonly profileRepo: AgentProfileRepository
-  ) {}
+  constructor(private readonly pool: Pool) {}
+
+  private getAgentProfile(role: string): AgentProfile {
+    try {
+      return getAgentConfig(role as 'debt' | 'tech' | 'market' | 'capital');
+    } catch {
+      throw new Error(`Profile with role "${role}" not found`);
+    }
+  }
 
   async joinSession(input: JoinSessionInput): Promise<Agent> {
     const { sessionId, profileRole, initialCredits = 100 } = input;
 
-    const profile = await this.profileRepo.findByRole(profileRole);
-    if (!profile) {
-      throw new Error(`Profile with role "${profileRole}" not found`);
-    }
+    const profile = this.getAgentProfile(profileRole);
 
     const sessionCheck = await this.pool.query('SELECT id FROM sessions WHERE id = $1', [sessionId]);
     if (sessionCheck.rows.length === 0) {
@@ -33,14 +35,14 @@ export class AgentRepository {
     const now = new Date();
 
     const query = `
-      INSERT INTO agents (id, profile_id, session_id, joined_at, is_active, budget_credits, budget_max_credits, budget_last_refill)
+      INSERT INTO agents (id, profile_role, session_id, joined_at, is_active, budget_credits, budget_max_credits, budget_last_refill)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING id, joined_at, is_active, budget_credits, budget_max_credits, budget_last_refill
     `;
 
     const result = await this.pool.query(query, [
       id,
-      profile.id,
+      profileRole,
       sessionId,
       joinedAt,
       true,
@@ -53,7 +55,7 @@ export class AgentRepository {
 
     return {
       id: row.id,
-      profile,
+      profile: { ...profile, id: profileRole },
       joinedAt: row.joined_at,
       isActive: row.is_active,
       budget: {
@@ -73,38 +75,28 @@ export class AgentRepository {
         a.budget_credits,
         a.budget_max_credits,
         a.budget_last_refill,
-        p.id as profile_id,
-        p.name as profile_name,
-        p.role as profile_role,
-        p.description as profile_description,
-        p.weight as profile_weight,
-        p.soul as profile_soul
+        a.profile_role
       FROM agents a
-      JOIN agent_profiles p ON a.profile_id = p.id
       WHERE a.session_id = $1
       ORDER BY a.joined_at ASC
     `;
 
     const result = await this.pool.query(query, [sessionId]);
 
-    return result.rows.map((row): Agent => ({
-      id: row.id,
-      profile: {
-        id: row.profile_id,
-        name: row.profile_name,
-        role: row.profile_role,
-        description: row.profile_description,
-        weight: row.profile_weight,
-        soul: row.profile_soul,
-      },
-      joinedAt: new Date(row.joined_at),
-      isActive: row.is_active,
-      budget: {
-        credits: row.budget_credits,
-        maxCredits: row.budget_max_credits,
-        lastRefill: new Date(row.budget_last_refill),
-      },
-    }));
+    return result.rows.map((row): Agent => {
+      const profile = this.getAgentProfile(row.profile_role);
+      return {
+        id: row.id,
+        profile: { ...profile, id: row.profile_role },
+        joinedAt: new Date(row.joined_at),
+        isActive: row.is_active,
+        budget: {
+          credits: row.budget_credits,
+          maxCredits: row.budget_max_credits,
+          lastRefill: new Date(row.budget_last_refill),
+        },
+      };
+    });
   }
 
   async findBySessionIdAndAgentId(sessionId: string, agentId: string): Promise<Agent | null> {
@@ -116,14 +108,8 @@ export class AgentRepository {
         a.budget_credits,
         a.budget_max_credits,
         a.budget_last_refill,
-        p.id as profile_id,
-        p.name as profile_name,
-        p.role as profile_role,
-        p.description as profile_description,
-        p.weight as profile_weight,
-        p.soul as profile_soul
+        a.profile_role
       FROM agents a
-      JOIN agent_profiles p ON a.profile_id = p.id
       WHERE a.session_id = $1 AND a.id = $2
     `;
 
@@ -134,17 +120,11 @@ export class AgentRepository {
     }
 
     const row = result.rows[0];
+    const profile = this.getAgentProfile(row.profile_role);
 
     return {
       id: row.id,
-      profile: {
-        id: row.profile_id,
-        name: row.profile_name,
-        role: row.profile_role,
-        description: row.profile_description,
-        weight: row.profile_weight,
-        soul: row.profile_soul,
-      },
+      profile: { ...profile, id: row.profile_role },
       joinedAt: new Date(row.joined_at),
       isActive: row.is_active,
       budget: {
@@ -157,21 +137,15 @@ export class AgentRepository {
 
   async findById(id: string): Promise<Agent | null> {
     const query = `
-      SELECT 
+      SELECT
         a.id,
         a.joined_at,
         a.is_active,
         a.budget_credits,
         a.budget_max_credits,
         a.budget_last_refill,
-        profile.id as profile_id,
-        profile.name as profile_name,
-        profile.role as profile_role,
-        profile.description as profile_description,
-        profile.weight as profile_weight,
-        profile.soul as profile_soul
+        a.profile_role
       FROM agents a
-      JOIN agent_profiles profile ON a.profile_id = profile.id
       WHERE a.id = $1
     `;
 
@@ -182,17 +156,11 @@ export class AgentRepository {
     }
 
     const row = result.rows[0];
+    const profile = this.getAgentProfile(row.profile_role);
 
     return {
       id: row.id,
-      profile: {
-        id: row.profile_id,
-        name: row.profile_name,
-        role: row.profile_role,
-        description: row.profile_description,
-        weight: row.profile_weight,
-        soul: row.profile_soul,
-      },
+      profile: { ...profile, id: row.profile_role },
       joinedAt: new Date(row.joined_at),
       isActive: row.is_active,
       budget: {
@@ -208,7 +176,7 @@ export class AgentRepository {
       UPDATE agents
       SET budget_credits = budget_credits - $1
       WHERE id = $2
-      RETURNING id, budget_credits, budget_max_credits, budget_last_refill, joined_at, is_active, profile_id
+      RETURNING id, budget_credits, budget_max_credits, budget_last_refill, joined_at, is_active, profile_role
     `;
 
     const result = await this.pool.query(updateQuery, [amount, agentId]);
@@ -218,31 +186,11 @@ export class AgentRepository {
     }
 
     const row = result.rows[0];
-
-    const profileQuery = `
-      SELECT id, name, role, description, weight, soul
-      FROM agent_profiles
-      WHERE id = $1
-    `;
-
-    const profileResult = await this.pool.query(profileQuery, [row.profile_id]);
-
-    if (profileResult.rows.length === 0) {
-      throw new Error(`Profile "${row.profile_id}" not found`);
-    }
-
-    const profileRow = profileResult.rows[0];
+    const profile = this.getAgentProfile(row.profile_role);
 
     return {
       id: row.id,
-      profile: {
-        id: profileRow.id,
-        name: profileRow.name,
-        role: profileRow.role,
-        description: profileRow.description,
-        weight: profileRow.weight,
-        soul: profileRow.soul,
-      },
+      profile: { ...profile, id: row.profile_role },
       joinedAt: new Date(row.joined_at),
       isActive: row.is_active,
       budget: {

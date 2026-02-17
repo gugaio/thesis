@@ -19,7 +19,6 @@ import { LedgerRepository } from './repositories/ledger.repository.js';
 import { LedgerService } from './services/ledger.service.js';
 import { getPool } from './db/connection.js';
 import { HypothesisRepository } from './repositories/hypothesis.repository.js';
-import { AgentProfileRepository } from './repositories/agent-profile.repository.js';
 
 const fastify = Fastify({
   logger: true
@@ -49,8 +48,7 @@ fastify.register(async function (fastify) {
   const hypothesisRepo = new HypothesisRepository(pool);
   const sessionRepo = new SessionRepository(pool, hypothesisRepo);
   const documentRepo = new DocumentRepository(pool);
-  const profileRepo = new AgentProfileRepository(pool);
-  const agentRepo = new AgentRepository(pool, profileRepo);
+  const agentRepo = new AgentRepository(pool);
   const opinionRepo = new OpinionRepository(pool);
   const voteRepo = new VoteRepository(pool);
   const messageRepo = new MessageRepository(pool);

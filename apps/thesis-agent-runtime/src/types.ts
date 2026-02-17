@@ -91,7 +91,7 @@ export interface AgentTask {
 export interface AgentResult {
   agent_id: string;
   iteration: number;
-  action: 'opinion' | 'message' | 'vote' | 'wait';
+  action: 'opinion' | 'message' | 'vote' | 'wait' | 'search';
   content?: string;
   confidence?: number;
   target_agent?: AgentProfile;
@@ -102,7 +102,7 @@ export interface AgentResult {
 }
 
 export interface StructuredAgentDecision {
-  action: 'opinion' | 'message' | 'vote' | 'wait';
+  action: 'opinion' | 'message' | 'vote' | 'wait' | 'search';
   reasoning: string;
   content?: string;
   target_agent?: AgentProfile;

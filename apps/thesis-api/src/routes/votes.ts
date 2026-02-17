@@ -3,7 +3,6 @@ import type { VoteCastEvent, EventType } from '@thesis/protocol';
 import { randomUUID } from 'crypto';
 import { VoteRepository } from '../repositories/vote.repository.js';
 import { AgentRepository } from '../repositories/agent.repository.js';
-import { AgentProfileRepository } from '../repositories/agent-profile.repository.js';
 import { LedgerRepository } from '../repositories/ledger.repository.js';
 import { LedgerService } from '../services/ledger.service.js';
 import { getPool } from '../db/connection.js';
@@ -18,8 +17,7 @@ interface CastVoteBody {
 export async function voteRoutes(fastify: FastifyInstance): Promise<void> {
   const pool = getPool();
   const voteRepo = new VoteRepository(pool);
-  const profileRepo = new AgentProfileRepository(pool);
-  const agentRepo = new AgentRepository(pool, profileRepo);
+  const agentRepo = new AgentRepository(pool);
   const ledgerRepo = new LedgerRepository(pool);
   const ledgerService = new LedgerService(ledgerRepo);
 

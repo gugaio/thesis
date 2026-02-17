@@ -30,28 +30,17 @@ CREATE TABLE IF NOT EXISTS documents (
   uploaded_at TIMESTAMP DEFAULT NOW()
 );
 
--- Agent Profiles table (predefined profiles)
-CREATE TABLE IF NOT EXISTS agent_profiles (
-  id UUID PRIMARY KEY,
-  name VARCHAR(255) NOT NULL,
-  role VARCHAR(100) NOT NULL,
-  description TEXT NOT NULL,
-  weight FLOAT NOT NULL,
-  soul TEXT NOT NULL,
-  UNIQUE(role)
-);
-
 -- Agents table (agents in sessions)
 CREATE TABLE IF NOT EXISTS agents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  profile_id UUID NOT NULL REFERENCES agent_profiles(id),
+  profile_role VARCHAR(100) NOT NULL,
   session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
   joined_at TIMESTAMP DEFAULT NOW(),
   is_active BOOLEAN DEFAULT TRUE,
   budget_credits INT NOT NULL,
   budget_max_credits INT NOT NULL,
   budget_last_refill TIMESTAMP DEFAULT NOW(),
-  UNIQUE(profile_id, session_id)
+  UNIQUE(profile_role, session_id)
 );
 
 -- Opinions table
@@ -124,32 +113,3 @@ CREATE INDEX IF NOT EXISTS idx_messages_unread ON messages(to_agent_id, read_at)
 CREATE INDEX IF NOT EXISTS idx_votes_session ON votes(session_id);
 CREATE INDEX IF NOT EXISTS idx_votes_agent ON votes(agent_id);
 CREATE INDEX IF NOT EXISTS idx_agent_rankings_score ON agent_rankings(score DESC);
-
--- Insert predefined agent profiles
-INSERT INTO agent_profiles (id, name, role, description, weight, soul)
-VALUES
-  (
-    '550e8400-e29b-41d4-a716-446655440001',
-    'Debt Specialist',
-    'debt',
-    'Especialista em finanças de startups',
-    1.0,
-    'Especialista em finanças de startups. Foca em: burn rate, runway, unit economics, e sinais de distress financeiro.'
-  ),
-  (
-    '550e8400-e29b-41d4-a716-446655440002',
-    'Tech Expert',
-    'tech',
-    'Arquiteto de software',
-    0.8,
-    'Arquiteto de software. Avalia: stack tecnológica, debt técnico, escalabilidade, e práticas de engenharia.'
-  ),
-  (
-    '550e8400-e29b-41d4-a716-446655440003',
-    'Market Analyst',
-    'market',
-    'Estrategista de mercado',
-    0.9,
-    'Estrategista de mercado. Analisa: TAM/SAM/SOM, competition, product-market fit, e tendências de mercado.'
-  )
-ON CONFLICT (role) DO NOTHING;

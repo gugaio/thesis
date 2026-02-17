@@ -2,9 +2,9 @@ import dotenv from 'dotenv';
 import { WebSocket } from 'ws';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { readFileSync } from 'fs';
 import { AgentWorkerManager } from './worker-manager.js';
 import { AGENTS_CONFIG, type AgentRole } from '@thesis/skills';
+import { PerplexityClient } from '@thesis/tools';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -45,9 +45,11 @@ class GatewayOrchestrator {
   private agentIds: Map<string, string> = new Map();
   private votes: Set<string> = new Set();
   private currentIteration = 0;
+  private perplexityClient: PerplexityClient;
 
   constructor() {
     this.workerManager = new AgentWorkerManager(AGENTS_CONFIG.length);
+    this.perplexityClient = new PerplexityClient();
   }
 
   async start(sessionId: string): Promise<void> {
@@ -221,6 +223,9 @@ class GatewayOrchestrator {
         case 'wait':
           console.log(`    ⏸️  ${result.agent_id} waiting: ${result.reasoning}`);
           break;
+        case 'search':
+          await this.performSearch(sessionId, result);
+          break;
       }
     }
   }
@@ -311,6 +316,43 @@ class GatewayOrchestrator {
       console.log(`    ✅ Vote cast: ${result.verdict}`);
     } catch (error) {
       console.error(`    ❌ Error casting vote:`, error);
+    }
+  }
+
+  private async performSearch(sessionId: string, result: any) {
+    console.log(`    🔍 Performing search for: ${result.content}`);
+    try {
+      const searchResult = await this.perplexityClient.research(result.content);
+
+      console.log(`    ✅ Search completed (${searchResult.length} chars)`);
+
+      // Create a new document with the search results
+      const fileName = `search_result_${Date.now()}.md`;
+      const fileContent = `# Search: ${result.content}\n\n**Agent**: ${result.agent_id}\n**Reasoning**: ${result.reasoning}\n\n---\n\n${searchResult}`;
+
+      // We need to upload this content as a document.
+      // Since API expects a file, we might need a new endpoint or form-data trickery.
+      // For now, let's assume we can POST text directly to a new endpoint we'll create.
+
+      const response = await fetch(`${API_URL}/sessions/${sessionId}/documents/text`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: fileName,
+          content: fileContent,
+          type: 'text/markdown'
+        })
+      });
+
+      if (!response.ok) {
+        // Fallback if the endpoint doesn't exist yet (we are adding it next)
+        console.warn(`    ⚠️ Failed to upload search result (Endpoint might be missing): ${response.statusText}`);
+      } else {
+        console.log(`    ✅ Search result saved as document: ${fileName}`);
+      }
+
+    } catch (error) {
+      console.error(`    ❌ Error performing search:`, error);
     }
   }
 

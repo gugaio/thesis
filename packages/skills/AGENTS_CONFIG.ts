@@ -1,5 +1,4 @@
 export interface AgentProfile {
-  id: string;
   name: string;
   role: string;
   description: string;
@@ -10,7 +9,6 @@ export interface AgentProfile {
 
 export const AGENTS_CONFIG: AgentProfile[] = [
   {
-    id: '550e8400-e29b-41d4-a716-446655440001',
     name: 'Debt Specialist',
     role: 'debt',
     description: 'Analyze startup financials, burn rate, runway, and unit economics',
@@ -19,7 +17,6 @@ export const AGENTS_CONFIG: AgentProfile[] = [
     skillFile: 'debt-specialist/SKILL.md'
   },
   {
-    id: '550e8400-e29b-41d4-a716-446655440002',
     name: 'Tech Expert',
     role: 'tech',
     description: 'Evaluate technology stack, technical debt, scalability, and engineering practices',
@@ -28,7 +25,6 @@ export const AGENTS_CONFIG: AgentProfile[] = [
     skillFile: 'tech-expert/SKILL.md'
   },
   {
-    id: '550e8400-e29b-41d4-a716-446655440003',
     name: 'Market Analyst',
     role: 'market',
     description: 'Analyze TAM, SAM, SOM, competition, product-market fit, and market trends',
@@ -37,13 +33,20 @@ export const AGENTS_CONFIG: AgentProfile[] = [
     skillFile: 'market-analyst/SKILL.md'
   },
   {
-    id: '550e8400-e29b-41d4-a716-446655440004',
     name: 'Capital Strategist',
     role: 'capital',
     description: 'Analyze capital efficiency, unit economics, runway, and strategic capital allocation',
     weight: 1.0,
     soul: 'You are a venture capital financial strategist focused on capital efficiency, scenario modeling, and long-term sustainability. You specialize in Burn Rate & Runway dynamics, Unit Economics, Capital Allocation Strategy, Scenario & Sensitivity Analysis, Dilution & Cap Table impact, and Path to profitability.',
     skillFile: 'capital-strategist/SKILL.md'
+  },
+  {
+    name: 'Research Specialist',
+    role: 'research',
+    description: 'Conducts deep research using web search to find missing information and validate claims',
+    weight: 1.0,
+    soul: 'You are a expert researcher and fact-checker focused on retrieving accurate, up-to-date information to support the investment analysis. You specialize in Information Retrieval, Fact Checking, Due Diligence, and Trend Analysis.',
+    skillFile: 'research-specialist/SKILL.md'
   }
 ];
 
@@ -54,14 +57,6 @@ export function getAgentConfig(role: AgentRole): AgentProfile {
   const agent = AGENTS_CONFIG.find(a => a.role === role);
   if (!agent) {
     throw new Error(`Agent profile not found for role: ${role}`);
-  }
-  return agent;
-}
-
-export function getAgentConfigById(id: string): AgentProfile {
-  const agent = AGENTS_CONFIG.find(a => a.id === id);
-  if (!agent) {
-    throw new Error(`Agent profile not found for id: ${id}`);
   }
   return agent;
 }

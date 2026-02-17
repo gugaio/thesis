@@ -2,7 +2,6 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { AgentJoinedEvent, EventType } from '@thesis/protocol';
 import { randomUUID } from 'crypto';
 import { AgentRepository } from '../repositories/agent.repository.js';
-import { AgentProfileRepository } from '../repositories/agent-profile.repository.js';
 import { LedgerRepository } from '../repositories/ledger.repository.js';
 import { LedgerService } from '../services/ledger.service.js';
 import { getPool } from '../db/connection.js';
@@ -15,8 +14,7 @@ interface JoinSessionBody {
 
 export async function agentRoutes(fastify: FastifyInstance): Promise<void> {
   const pool = getPool();
-  const profileRepo = new AgentProfileRepository(pool);
-  const agentRepo = new AgentRepository(pool, profileRepo);
+  const agentRepo = new AgentRepository(pool);
   const ledgerRepo = new LedgerRepository(pool);
   const ledgerService = new LedgerService(ledgerRepo);
 

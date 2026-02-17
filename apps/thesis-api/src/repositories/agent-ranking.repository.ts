@@ -1,6 +1,7 @@
 import type { Pool } from 'pg';
 import { randomUUID } from 'crypto';
 import type { AgentRanking } from '@thesis/protocol';
+import { getAgentConfig, type AgentProfile } from '@thesis/skills';
 
 export interface UpdateRankingInput {
   agentId: string;
@@ -41,19 +42,14 @@ export class AgentRankingRepository {
   async update(input: UpdateRankingInput): Promise<AgentRanking> {
     const { agentId, sessionId, votedCorrectly } = input;
 
-    const checkAgent = await this.pool.query('SELECT id FROM agents WHERE id = $1', [agentId]);
+    const checkAgent = await this.pool.query('SELECT id, profile_role FROM agents WHERE id = $1', [agentId]);
     if (checkAgent.rows.length === 0) {
       throw new Error(`Agent "${agentId}" not found`);
     }
 
-    const profileWeightQuery = `
-      SELECT p.weight
-      FROM agents a
-      JOIN agent_profiles p ON a.profile_id = p.id
-      WHERE a.id = $1
-    `;
-    const weightResult = await this.pool.query(profileWeightQuery, [agentId]);
-    const weight = weightResult.rows[0]?.weight || 1.0;
+    const profileRole = checkAgent.rows[0].profile_role;
+    const profile = getAgentConfig(profileRole as 'debt' | 'tech' | 'market' | 'capital');
+    const weight = profile.weight;
 
     const opinionsQuery = `
       SELECT COUNT(*) as count, AVG(confidence) as avg_conf

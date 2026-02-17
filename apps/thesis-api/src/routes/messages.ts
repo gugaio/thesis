@@ -17,7 +17,7 @@ interface SendMessageBody {
 export async function messageRoutes(fastify: FastifyInstance): Promise<void> {
   const pool = getPool();
   const messageRepo = new MessageRepository(pool);
-  const agentRepo = new AgentRepository(pool, messageRepo as any);
+  const agentRepo = new AgentRepository(pool);
   const ledgerRepo = new LedgerRepository(pool);
   const ledgerService = new LedgerService(ledgerRepo);
 

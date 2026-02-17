@@ -63,6 +63,64 @@ export async function documentRoutes(fastify: FastifyInstance): Promise<void> {
     }
   );
 
+  fastify.post(
+    '/sessions/:id/documents/text',
+    async (request: FastifyRequest<{ Params: { id: string }, Body: { name: string, content: string, type: string } }>, reply) => {
+      const { id } = request.params;
+      const { name, content, type } = request.body;
+      const uploadDir = process.env.UPLOAD_DIR || '/app/uploads';
+
+      if (!content) {
+        return reply.status(400).send({ error: 'No content provided' });
+      }
+
+      // Save content to a file
+      const fileName = name || `document_${Date.now()}.txt`;
+      // Ensure upload dir exists
+      try {
+        await fs.mkdir(uploadDir, { recursive: true });
+      } catch (err) {
+        // ignore if exists
+      }
+
+      const filePath = `${uploadDir}/${fileName}`;
+      await fs.writeFile(filePath, content);
+
+      const buffer = Buffer.from(content);
+
+      const document = await documentRepo.create({
+        sessionId: id,
+        name: fileName,
+        type: type || 'text/plain',
+        size: buffer.length,
+        content: buffer,
+        uploadDir,
+      });
+
+      const event: DocUploadedEvent = {
+        id: randomUUID(),
+        type: 'doc.uploaded' as EventType.DOC_UPLOADED,
+        sessionId: id,
+        timestamp: new Date(),
+        version: 1,
+        documentId: document.id,
+        documentName: document.name,
+        documentType: document.type,
+        uploadedBy: 'system',
+      };
+
+      await ledgerService.addEvent(id, event);
+
+      publishEvent(id, event);
+
+      return reply.status(201).send({
+        documentId: document.id,
+        name: document.name,
+        size: document.size,
+      });
+    }
+  );
+
   fastify.get(
     '/sessions/:id/documents',
     async (request: FastifyRequest<{ Params: { id: string } }>, reply) => {
