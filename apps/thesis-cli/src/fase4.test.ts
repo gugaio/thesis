@@ -1,13 +1,14 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { spawn } from 'child_process';
 import { unlinkSync, readFileSync } from 'fs';
 import path from 'path';
+import { ensureCliIntegrationPrerequisites } from './__tests__/helpers/cli-prereqs';
 
 const CLI_PATH = path.join(__dirname, '../dist/index.js');
 const NODE = process.execPath;
 
 function runCli(args: string[]): Promise<{ stdout: string; stderr: string; code: number }> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const child = spawn(NODE, [CLI_PATH, ...args], {
       cwd: process.cwd(),
       env: { ...process.env, API_URL: 'http://localhost:4000' },
@@ -28,11 +29,17 @@ function runCli(args: string[]): Promise<{ stdout: string; stderr: string; code:
       resolve({ stdout, stderr, code: code || 0 });
     });
 
-    child.on('error', reject);
+    child.on('error', (error) => {
+      resolve({ stdout, stderr: `${stderr}\n${error.message}`, code: 1 });
+    });
   });
 }
 
 describe('CLI - Fase 4', () => {
+  beforeAll(async () => {
+    await ensureCliIntegrationPrerequisites();
+  });
+
   describe('cast-vote command', () => {
     it('should fail without session id', async () => {
       const result = await runCli(['cast-vote']);

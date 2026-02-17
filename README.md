@@ -145,6 +145,8 @@ Teste: fluxo e2e completo por canal externo.
 4. Verification: executar comandos reais da fase antes de entregar.
 5. Evidence: anexar checklist de teste com resultado.
 
+Guia de execução de testes: `TESTING.md`.
+
 ## 12) Modo operacional atual
 1. Docker Compose sobe apenas serviços de infraestrutura e API (`postgres` e `api`).
 2. `thesis-gateway` roda local, iniciado via `thesis analyze` (spawn local).
