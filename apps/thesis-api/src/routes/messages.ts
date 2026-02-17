@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import type { MessageSentEvent, BudgetUpdatedEvent, EventType } from '@thesis/protocol';
 import { randomUUID } from 'crypto';
 import { MessageRepository } from '../repositories/message.repository.js';

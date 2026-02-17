@@ -7,7 +7,7 @@ describe('Fase 6 - Integration Tests', () => {
   describe('Gateway Integration', () => {
     it('should build gateway successfully', async () => {
       const { exec } = await import('child_process');
-      const { stdout, stderr } = exec('pnpm --filter @thesis/gateway build');
+      const { stderr } = exec('pnpm --filter @thesis/gateway build');
       
       expect(stderr).not.toContain('error');
       expect(stderr).not.toContain('Error');
@@ -24,7 +24,7 @@ describe('Fase 6 - Integration Tests', () => {
   describe('CLI Integration', () => {
     it('should build CLI successfully', async () => {
       const { exec } = await import('child_process');
-      const { stdout, stderr } = exec('pnpm --filter @thesis/cli build');
+      const { stderr } = exec('pnpm --filter @thesis/cli build');
       
       expect(stderr).not.toContain('error');
       expect(stderr).not.toContain('Error');
@@ -34,7 +34,7 @@ describe('Fase 6 - Integration Tests', () => {
   describe('Agent Runtime Integration', () => {
     it('should build agent runtime successfully', async () => {
       const { exec } = await import('child_process');
-      const { stdout, stderr } = exec('pnpm --filter thesis-agent-runtime build');
+      const { stderr } = exec('pnpm --filter thesis-agent-runtime build');
       
       expect(stderr).not.toContain('error');
       expect(stderr).not.toContain('Error');
@@ -51,7 +51,7 @@ describe('Fase 6 - Integration Tests', () => {
   describe('Package Integration', () => {
     it('should build prompt-adapter successfully', async () => {
       const { exec } = await import('child_process');
-      const { stdout, stderr } = exec('pnpm --filter @thesis/prompt-adapter build');
+      const { stderr } = exec('pnpm --filter @thesis/prompt-adapter build');
       
       expect(stderr).not.toContain('error');
       expect(stderr).not.toContain('Error');
@@ -59,7 +59,7 @@ describe('Fase 6 - Integration Tests', () => {
 
     it('should build tools successfully', async () => {
       const { exec } = await import('child_process');
-      const { stdout, stderr } = exec('pnpm --filter @thesis/tools build');
+      const { stderr } = exec('pnpm --filter @thesis/tools build');
       
       expect(stderr).not.toContain('error');
       expect(stderr).not.toContain('Error');

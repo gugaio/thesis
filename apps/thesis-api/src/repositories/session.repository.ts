@@ -138,7 +138,7 @@ export class SessionRepository {
   }
 
   async close(input: CloseSessionInput): Promise<Session> {
-    const { sessionId, finalVerdict, rationale } = input;
+    const { sessionId, finalVerdict } = input;
 
     const checkQuery = `
       SELECT id, status, hypothesis_id

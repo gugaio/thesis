@@ -4,7 +4,7 @@ import { ApiClient } from './client/api-client.js';
 import { existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { AGENTS_CONFIG, AGENT_ROLES } from '@thesis/skills';
+import { AGENT_ROLES } from '@thesis/skills';
 
 const program = new Command();
 
@@ -404,7 +404,7 @@ program
         }
       };
 
-      while (true) {
+      for (;;) {
         const result = await client.listMessages(options.session, options.agent!, true);
 
         if (result.messages.length === 0) {

@@ -36,8 +36,6 @@ export class MockAgentWorker {
       throw new Error(`Mock error on iteration ${iteration}`);
     }
 
-    const profile = this.config.profile;
-
     if (iteration === 1 && this.config.initialOpinion !== false) {
       return this.createOpinionResult(agentId, iteration);
     }

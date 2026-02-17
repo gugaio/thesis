@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { spawn } from 'child_process';
-import { writeFileSync, unlinkSync } from 'fs';
 import path from 'path';
 
 const CLI_PATH = path.join(__dirname, '../dist/index.js');

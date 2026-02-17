@@ -1,7 +1,7 @@
 import type { Pool } from 'pg';
 import { randomUUID } from 'crypto';
 import type { AgentRanking } from '@thesis/protocol';
-import { getAgentConfig, type AgentProfile } from '@thesis/skills';
+import { getAgentConfig } from '@thesis/skills';
 
 export interface UpdateRankingInput {
   agentId: string;

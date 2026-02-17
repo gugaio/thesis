@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { spawn } from 'child_process';
-import { writeFileSync, unlinkSync, readFileSync } from 'fs';
+import { unlinkSync, readFileSync } from 'fs';
 import path from 'path';
 
 const CLI_PATH = path.join(__dirname, '../dist/index.js');
@@ -108,6 +108,7 @@ describe('CLI - Fase 4', () => {
       try {
         unlinkSync(tempReportPath);
       } catch (e) {
+        void e;
       }
     });
 
@@ -277,7 +278,7 @@ describe('CLI - Fase 4', () => {
 
   describe('Vote Counting', () => {
     let sessionId: string;
-    let agents: string[] = [];
+    const agents: string[] = [];
 
     beforeAll(async () => {
       const sessionResult = await runCli(['init-session', '--hypothesis', 'Vote counting test']);

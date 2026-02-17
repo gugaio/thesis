@@ -111,7 +111,6 @@ export async function sessionRoutes(fastify: FastifyInstance): Promise<void> {
         const session = await sessionRepo.close({ sessionId, finalVerdict: verdict, rationale });
 
         const votes = await voteRepo.findBySessionId(sessionId);
-        const agents = await agentRepo.findBySessionId(sessionId);
 
         for (const vote of votes) {
           const votedCorrectly = vote.verdict === verdict;
