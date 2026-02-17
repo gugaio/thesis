@@ -6,7 +6,8 @@ export enum EventType {
   VOTE_CAST = 'vote.cast',
   SESSION_CLOSED = 'session.closed',
   BUPDATED = 'budget.updated',
-  MESSAGE_SENT = 'message.sent'
+  MESSAGE_SENT = 'message.sent',
+  ORCHESTRATOR_COMMAND_ISSUED = 'orchestrator.command_issued'
 }
 
 export interface BaseEvent {
@@ -76,6 +77,14 @@ export interface MessageSentEvent extends BaseEvent {
   content: string;
 }
 
+export interface OrchestratorCommandIssuedEvent extends BaseEvent {
+  type: EventType.ORCHESTRATOR_COMMAND_ISSUED;
+  commandType: 'ask' | 'resume' | 'vote';
+  issuedBy: string;
+  targetAgentRole?: string;
+  content?: string;
+}
+
 export type Event =
   | SessionCreatedEvent
   | DocUploadedEvent
@@ -84,4 +93,5 @@ export type Event =
   | VoteCastEvent
   | SessionClosedEvent
   | BudgetUpdatedEvent
-  | MessageSentEvent;
+  | MessageSentEvent
+  | OrchestratorCommandIssuedEvent;

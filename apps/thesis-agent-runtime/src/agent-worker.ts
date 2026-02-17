@@ -25,6 +25,8 @@ export class AgentWorker {
   private piProvider: string;
   private piModel: string;
   private timeoutMs: number;
+  private forcedVote: boolean;
+  private humanInstructions: string[];
   private minCreditsBuffer: number;
   private baseSystem: string;
   private soul: string;
@@ -47,6 +49,8 @@ export class AgentWorker {
     this.piProvider = task.pi_provider;
     this.piModel = task.pi_model;
     this.timeoutMs = task.iteration_timeout_ms;
+    this.forcedVote = task.forced_vote ?? false;
+    this.humanInstructions = task.human_instructions ?? [];
     this.minCreditsBuffer = 10;
     this.baseSystem = this.loadBaseSystem();
     this.soul = task.skill_content.substring(0, 1000);
@@ -197,6 +201,9 @@ ${context.previous_messages.length > 0 ? context.previous_messages.map(msg => `-
 ## Previous Votes
 ${context.previous_votes.length > 0 ? context.previous_votes.map(vote => `- **${vote.profile}**: ${vote.verdict}`).join('\n') : 'No votes cast yet.'}
 
+## Human Instructions
+${this.humanInstructions.length > 0 ? this.humanInstructions.map(instruction => `- ${instruction}`).join('\n') : 'No direct human instructions for this iteration.'}
+
 ${context.final_verdict ? `## Final Verdict\n${context.final_verdict}` : ''}
 
 ---
@@ -220,6 +227,7 @@ ${this.getActionPrompt(this.profile)}
 - Be strategic about budget usage
 - Your response must be valid JSON only, no markdown, no extra text
 - Double-check that action is exactly "opinion", "message", "vote", or "wait"
+${this.forcedVote ? '\n- HUMAN COMMAND ACTIVE: You should prefer action "vote" in this iteration unless a critical blocker prevents voting' : ''}
 `;
 
     return systemPrompt + contextSection;
@@ -554,6 +562,8 @@ The "action" field MUST be EXACTLY one of these four values (case-sensitive):
     this.piProvider = task.pi_provider;
     this.piModel = task.pi_model;
     this.timeoutMs = task.iteration_timeout_ms;
+    this.forcedVote = task.forced_vote ?? false;
+    this.humanInstructions = task.human_instructions ?? [];
   }
 }
 

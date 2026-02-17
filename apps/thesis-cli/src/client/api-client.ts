@@ -295,4 +295,25 @@ export class ApiClient {
       throw new Error(err.response?.data?.error || err.message);
     }
   }
+
+  async issueOrchestratorCommand(
+    sessionId: string,
+    commandType: 'ask' | 'resume' | 'vote',
+    issuedBy?: string,
+    targetAgentRole?: string,
+    content?: string
+  ): Promise<{ commandId: string; sessionId: string; commandType: string; issuedBy: string }> {
+    try {
+      const response = await this.client.post(`/sessions/${sessionId}/orchestrator/commands`, {
+        commandType,
+        issuedBy,
+        targetAgentRole,
+        content,
+      });
+      return response.data;
+    } catch (error) {
+      const err = error as AxiosError<{ error: string }>;
+      throw new Error(err.response?.data?.error || err.message);
+    }
+  }
 }

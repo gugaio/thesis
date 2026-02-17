@@ -4,7 +4,6 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { AgentWorkerManager } from './worker-manager.js';
 import { AGENTS_CONFIG, type AgentRole } from '@thesis/skills';
-import { PerplexityClient } from '@thesis/tools';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -37,19 +36,45 @@ interface AgentInfo {
   };
 }
 
+interface OrchestratorCommandEvent {
+  type: 'orchestrator.command_issued';
+  sessionId: string;
+  commandType: 'ask' | 'resume' | 'vote';
+  issuedBy: string;
+  targetAgentRole?: AgentRole;
+  content?: string;
+}
+
+interface SessionVote {
+  agentId: string;
+  verdict: 'approve' | 'reject' | 'abstain';
+}
+
+interface WebSocketEnvelope {
+  type: string;
+  data?: {
+    type?: string;
+    [key: string]: unknown;
+  };
+}
+
+type OrchestratorState = 'running' | 'idle' | 'stopped';
+
 class GatewayOrchestrator {
   private ws: WebSocket | null = null;
   private sessionData: SessionData | null = null;
   private running = false;
   private workerManager: AgentWorkerManager;
-  private agentIds: Map<string, string> = new Map();
+  private agentIds: Map<AgentRole, string> = new Map();
   private votes: Set<string> = new Set();
   private currentIteration = 0;
-  private perplexityClient: PerplexityClient;
+  private state: OrchestratorState = 'stopped';
+  private wakeResolver: (() => void) | null = null;
+  private pendingInstructions: Map<AgentRole, string[]> = new Map();
+  private forcedVoteRound = false;
 
   constructor() {
     this.workerManager = new AgentWorkerManager(AGENTS_CONFIG.length);
-    this.perplexityClient = new PerplexityClient();
   }
 
   async start(sessionId: string): Promise<void> {
@@ -67,7 +92,7 @@ class GatewayOrchestrator {
 
     await this.connectWebSocket();
     await this.registerAgents(sessionId);
-    await this.runAnalysis(sessionId);
+    await this.runAnalysisLoop(sessionId);
   }
 
   async fetchSession(sessionId: string): Promise<SessionData | null> {
@@ -106,8 +131,12 @@ class GatewayOrchestrator {
       });
 
       this.ws.on('message', (data: Buffer) => {
-        const event = JSON.parse(data.toString());
-        console.log(`📨 WebSocket event: ${event.type}`);
+        const payload = JSON.parse(data.toString()) as WebSocketEnvelope;
+        if (payload.type === 'event' && payload.data?.type === 'orchestrator.command_issued') {
+          this.handleOrchestratorCommand(payload.data as unknown as OrchestratorCommandEvent);
+          return;
+        }
+        console.log(`📨 WebSocket event: ${payload.type}`);
       });
 
       this.ws.on('close', () => {
@@ -135,7 +164,7 @@ class GatewayOrchestrator {
         }
 
         const result = await response.json() as AgentInfo;
-        this.agentIds.set(profile.role, result.agentId);
+        this.agentIds.set(profile.role as AgentRole, result.agentId);
         console.log(`✅ Registered ${profile.name} (ID: ${result.agentId})`);
       } catch (error) {
         console.error(`❌ Error registering ${profile.role} agent:`, error);
@@ -144,71 +173,94 @@ class GatewayOrchestrator {
     }
   }
 
-  private async runAnalysis(sessionId: string): Promise<void> {
-    console.log('\n🏃 Running analysis for session:', sessionId);
+  private async runAnalysisLoop(sessionId: string): Promise<void> {
+    console.log('\n🏃 Running analysis loop for session:', sessionId);
     this.running = true;
+    this.state = 'running';
 
-    for (let i = 0; i < MAX_ITERATIONS && this.running && !this.shouldStop(); i++) {
-      this.currentIteration = i + 1;
-      console.log('***************************************************************************\n\n**********************************\n\n*********************')
-      console.log(`\n🔄 Iteration ${this.currentIteration}/${MAX_ITERATIONS}`);
+    while (this.running) {
+      if (this.state === 'idle') {
+        await this.waitForCommand();
+        continue;
+      }
+
+      if (MAX_ITERATIONS > 0 && this.currentIteration >= MAX_ITERATIONS) {
+        console.log(`\n⏸️  Iteration limit reached (${MAX_ITERATIONS}). Waiting for human command...`);
+        this.state = 'idle';
+        continue;
+      }
+
+      this.currentIteration += 1;
+      console.log(`\n🔄 Iteration ${this.currentIteration}`);
 
       const tasks = this.createAgentTasks(sessionId, this.currentIteration);
-
       console.log(`📋 Running ${tasks.length} agents in parallel...`);
 
       try {
         const results = await Promise.all(tasks.map(task => this.workerManager.runAgentTask(task)));
-        await this.processResults(results, sessionId);
+        const allWaiting = await this.processResults(results, sessionId);
+
+        if (this.forcedVoteRound && this.votes.size === AGENTS_CONFIG.length) {
+          console.log('\n🏁 Voting round complete. Closing session...');
+          await this.closeSession(sessionId);
+          this.running = false;
+          this.state = 'stopped';
+          break;
+        }
+
+        if (allWaiting) {
+          console.log('\n⏸️  All agents are waiting. Orchestrator is idle until new command.');
+          this.state = 'idle';
+          this.forcedVoteRound = false;
+        }
       } catch (error) {
         console.error('❌ Error running iteration:', error);
       }
 
       console.log(`\n📊 Stats:`, this.workerManager.getStats());
 
-      if (this.shouldStop()) {
-        console.log('\n🛑 Stopping conditions met');
-        break;
+      if (this.running && this.state === 'running') {
+        await this.sleep(ITERATION_DELAY);
       }
-
-      await this.sleep(ITERATION_DELAY);
     }
-
-    console.log('\n✅ Analysis completed');
-    await this.closeSession(sessionId);
   }
 
   private createAgentTasks(sessionId: string, iteration: number) {
-    return AGENTS_CONFIG.map(profile => ({
-      session_id: sessionId,
-      agent_id: this.agentIds.get(profile.role as AgentRole)!,
-      profile_role: profile.role as AgentRole,
-      skill_path: join(__dirname, '../../../packages/skills', profile.skillFile),
-      skill_content: '',
-      iteration,
-      max_iterations: MAX_ITERATIONS,
-      api_url: API_URL,
-      ws_url: WS_URL,
-      pi_provider: PI_PROVIDER,
-      pi_model: PI_MODEL,
-      iteration_timeout_ms: ITERATION_TIMEOUT,
-    }));
+    return AGENTS_CONFIG.map(profile => {
+      const role = profile.role as AgentRole;
+      const instructions = this.pendingInstructions.get(role) ?? [];
+      return {
+        session_id: sessionId,
+        agent_id: this.agentIds.get(role)!,
+        profile_role: role,
+        skill_path: join(__dirname, '../../../packages/skills', profile.skillFile),
+        skill_content: '',
+        iteration,
+        max_iterations: MAX_ITERATIONS,
+        api_url: API_URL,
+        ws_url: WS_URL,
+        pi_provider: PI_PROVIDER,
+        pi_model: PI_MODEL,
+        iteration_timeout_ms: ITERATION_TIMEOUT,
+        forced_vote: this.forcedVoteRound,
+        human_instructions: instructions,
+      };
+    }).map(task => {
+      this.pendingInstructions.delete(task.profile_role);
+      return task;
+    });
   }
 
-  private async processResults(results: any[], sessionId: string) {
+  private async processResults(results: any[], sessionId: string): Promise<boolean> {
+    let waitCount = 0;
+
     for (const result of results) {
-      if (!result) continue;
-
-      console.log(`  🤖 ${result.agent_id}: ${result.action} - ${result.reasoning?.substring(0, 50) || ''}...`);
-
-      if (result.action === 'message') {
-        const contentPreview = result.content ? result.content.substring(0, 100) : '(null)';
-        const contentLength = result.content ? result.content.length : 0;
-        console.log(`    📝 Content preview: ${contentPreview}`);
-        console.log(`    📝 Content length: ${contentLength}`);
-        console.log(`    🎯 Target: ${result.target_agent}`);
-        console.log(`    🔍 Full result keys:`, Object.keys(result));
+      if (!result) {
+        waitCount += 1;
+        continue;
       }
+
+      console.log(`  🤖 ${result.agent_id}: ${result.action} - ${result.reasoning?.substring(0, 80) || ''}`);
 
       switch (result.action) {
         case 'opinion':
@@ -221,13 +273,19 @@ class GatewayOrchestrator {
           await this.castVote(sessionId, result);
           break;
         case 'wait':
+          waitCount += 1;
           console.log(`    ⏸️  ${result.agent_id} waiting: ${result.reasoning}`);
           break;
         case 'search':
           await this.performSearch(sessionId, result);
           break;
+        default:
+          waitCount += 1;
+          break;
       }
     }
+
+    return waitCount === results.length;
   }
 
   private async postOpinion(sessionId: string, result: any) {
@@ -247,28 +305,22 @@ class GatewayOrchestrator {
         return;
       }
 
-      console.log(`    ✅ Opinion posted`);
+      console.log('    ✅ Opinion posted');
     } catch (error) {
-      console.error(`    ❌ Error posting opinion:`, error);
+      console.error('    ❌ Error posting opinion:', error);
     }
   }
 
   private async postMessage(sessionId: string, result: any) {
     try {
-      const targetAgentId = this.agentIds.get(result.target_agent);
+      const targetAgentId = this.agentIds.get(result.target_agent as AgentRole);
       if (!targetAgentId) {
         console.error(`    ❌ Unknown target profile: ${result.target_agent}`);
         return;
       }
 
-      console.log(`    📤 Posting message:`, JSON.stringify({
-        fromAgentId: result.agent_id,
-        toAgentId: targetAgentId,
-        content: result.content?.substring(0, 50) || '(empty)'
-      }));
-
       if (!result.content || result.content.trim().length === 0) {
-        console.error(`    ❌ Message content is empty, skipping`);
+        console.error('    ❌ Message content is empty, skipping');
         return;
       }
 
@@ -284,14 +336,12 @@ class GatewayOrchestrator {
 
       if (!response.ok) {
         console.error(`    ❌ Failed to post message: ${response.statusText}`);
-        const errorBody = await response.text();
-        console.error(`    ❌ Error body:`, errorBody);
         return;
       }
 
       console.log(`    ✅ Message sent to ${result.target_agent}`);
     } catch (error) {
-      console.error(`    ❌ Error posting message:`, error);
+      console.error('    ❌ Error posting message:', error);
     }
   }
 
@@ -308,96 +358,53 @@ class GatewayOrchestrator {
       });
 
       if (!response.ok) {
-        console.error(`    ❌ Failed to cast vote: ${response.statusText}`);
+        const errorBody = await response.text();
+        console.error(`    ❌ Failed to cast vote: ${response.statusText} - ${errorBody}`);
         return;
       }
 
       this.votes.add(result.agent_id);
       console.log(`    ✅ Vote cast: ${result.verdict}`);
     } catch (error) {
-      console.error(`    ❌ Error casting vote:`, error);
+      console.error('    ❌ Error casting vote:', error);
     }
   }
 
   private async performSearch(sessionId: string, result: any) {
-    console.log(`    🔍 Performing search for: ${result.content}`);
-    try {
-      const searchResult = await this.perplexityClient.research(result.content);
-
-      console.log(`    ✅ Search completed (${searchResult.length} chars)`);
-
-      // Create a new document with the search results
-      const fileName = `search_result_${Date.now()}.md`;
-      const fileContent = `# Search: ${result.content}\n\n**Agent**: ${result.agent_id}\n**Reasoning**: ${result.reasoning}\n\n---\n\n${searchResult}`;
-
-      // We need to upload this content as a document.
-      // Since API expects a file, we might need a new endpoint or form-data trickery.
-      // For now, let's assume we can POST text directly to a new endpoint we'll create.
-
-      const response = await fetch(`${API_URL}/sessions/${sessionId}/documents/text`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: fileName,
-          content: fileContent,
-          type: 'text/markdown'
-        })
-      });
-
-      if (!response.ok) {
-        // Fallback if the endpoint doesn't exist yet (we are adding it next)
-        console.warn(`    ⚠️ Failed to upload search result (Endpoint might be missing): ${response.statusText}`);
-      } else {
-        console.log(`    ✅ Search result saved as document: ${fileName}`);
-      }
-
-    } catch (error) {
-      console.error(`    ❌ Error performing search:`, error);
-    }
-  }
-
-  private shouldStop(): boolean {
-    const allVoted = this.votes.size === AGENTS_CONFIG.length;
-    const maxReached = this.currentIteration >= MAX_ITERATIONS;
-
-    if (allVoted) {
-      console.log('🏁 All agents have voted');
-      return true;
-    }
-
-    if (maxReached) {
-      console.log('🏁 Maximum iterations reached');
-      return true;
-    }
-
-    return false;
+    console.warn(`    ⚠️ Search action requested by ${result.agent_id}, but external research is disabled in this runtime.`);
+    console.warn(`    ⚠️ Query: ${result.content || '(empty)'}`);
+    console.warn(`    ⚠️ Session: ${sessionId}`);
   }
 
   private async closeSession(sessionId: string): Promise<void> {
-    if (this.votes.size === 0) {
+    const response = await fetch(`${API_URL}/sessions/${sessionId}/votes`);
+    if (!response.ok) {
+      console.error(`❌ Failed to fetch votes before close: ${response.statusText}`);
+      return;
+    }
+
+    const votes = await response.json() as SessionVote[];
+    if (votes.length === 0) {
       console.log('⚠️  No votes cast, skipping session close');
       return;
     }
 
-    console.log(`\n🏁 Closing session: ${sessionId}`);
-
-    const votes = Array.from(this.votes);
-    const approveCount = votes.length;
-
-    const verdict = approveCount > votes.length / 2 ? 'approve' : 'reject';
+    const approveCount = votes.filter(v => v.verdict === 'approve').length;
+    const rejectCount = votes.filter(v => v.verdict === 'reject').length;
+    const verdict = approveCount > rejectCount ? 'approve' : 'reject';
 
     try {
-      const response = await fetch(`${API_URL}/sessions/${sessionId}/close`, {
+      const closeResponse = await fetch(`${API_URL}/sessions/${sessionId}/close`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           verdict,
-          rationale: `Analysis completed after ${this.currentIteration} iterations. ${votes.length} agents voted.`
+          rationale: `Voting round completed with ${votes.length} votes. approve=${approveCount}, reject=${rejectCount}.`
         })
       });
 
-      if (!response.ok) {
-        throw new Error(`Failed to close session: ${response.statusText}`);
+      if (!closeResponse.ok) {
+        throw new Error(`Failed to close session: ${closeResponse.statusText}`);
       }
 
       console.log(`✅ Session closed with verdict: ${verdict}`);
@@ -406,9 +413,60 @@ class GatewayOrchestrator {
     }
   }
 
+  private handleOrchestratorCommand(event: OrchestratorCommandEvent): void {
+    console.log(`\n🧭 Human command received: ${event.commandType} (by ${event.issuedBy})`);
+
+    if (event.commandType === 'ask') {
+      if (!event.targetAgentRole || !event.content) {
+        console.log('⚠️  Ignoring ask command without target/content');
+        return;
+      }
+      const current = this.pendingInstructions.get(event.targetAgentRole) ?? [];
+      current.push(event.content);
+      this.pendingInstructions.set(event.targetAgentRole, current);
+      this.state = 'running';
+      this.wakeLoop();
+      return;
+    }
+
+    if (event.commandType === 'vote') {
+      this.forcedVoteRound = true;
+      for (const profile of AGENTS_CONFIG) {
+        const role = profile.role as AgentRole;
+        const current = this.pendingInstructions.get(role) ?? [];
+        current.push('Human command: start voting round now. Vote if you have enough evidence.');
+        this.pendingInstructions.set(role, current);
+      }
+      this.state = 'running';
+      this.wakeLoop();
+      return;
+    }
+
+    if (event.commandType === 'resume') {
+      this.state = 'running';
+      this.wakeLoop();
+    }
+  }
+
+  private waitForCommand(): Promise<void> {
+    return new Promise((resolve) => {
+      this.wakeResolver = resolve;
+    });
+  }
+
+  private wakeLoop(): void {
+    if (this.wakeResolver) {
+      const resolver = this.wakeResolver;
+      this.wakeResolver = null;
+      resolver();
+    }
+  }
+
   stop(): void {
     console.log('🛑 Stopping gateway...');
     this.running = false;
+    this.state = 'stopped';
+    this.wakeLoop();
     this.workerManager.stopAll();
     this.ws?.close();
   }

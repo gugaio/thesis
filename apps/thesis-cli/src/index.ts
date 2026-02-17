@@ -565,7 +565,112 @@ program
     }
   });
 
-  program
+program
+  .command('orchestr-ask')
+  .description('Send a human instruction to a specific agent role via orchestrator')
+  .option('--session <id>', 'Session ID')
+  .option('--target <role>', `Target agent role (${AGENT_ROLES.join(', ')})`)
+  .option('--content <text>', 'Instruction content')
+  .option('--issued-by <name>', 'Issuer name', 'human')
+  .action(async (options) => {
+    try {
+      if (!options.session) {
+        console.error('Error: --session is required');
+        process.exit(1);
+      }
+
+      if (!options.target) {
+        console.error('Error: --target is required');
+        process.exit(1);
+      }
+
+      if (!AGENT_ROLES.includes(options.target)) {
+        console.error(`Error: Invalid --target "${options.target}"`);
+        console.error(`Available targets: ${AGENT_ROLES.join(', ')}`);
+        process.exit(1);
+      }
+
+      if (!options.content || options.content.trim().length === 0) {
+        console.error('Error: --content is required');
+        process.exit(1);
+      }
+
+      const client = new ApiClient(process.env.API_URL);
+      const result = await client.issueOrchestratorCommand(
+        options.session,
+        'ask',
+        options.issuedBy,
+        options.target,
+        options.content
+      );
+
+      console.log('✅ Orchestrator command sent!');
+      console.log(`Command ID: ${result.commandId}`);
+      console.log(`Type: ${result.commandType}`);
+      console.log(`Issued by: ${result.issuedBy}`);
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('orchestr-resume')
+  .description('Resume orchestrator loop for a session')
+  .option('--session <id>', 'Session ID')
+  .option('--issued-by <name>', 'Issuer name', 'human')
+  .action(async (options) => {
+    try {
+      if (!options.session) {
+        console.error('Error: --session is required');
+        process.exit(1);
+      }
+
+      const client = new ApiClient(process.env.API_URL);
+      const result = await client.issueOrchestratorCommand(
+        options.session,
+        'resume',
+        options.issuedBy
+      );
+
+      console.log('✅ Orchestrator resume command sent!');
+      console.log(`Command ID: ${result.commandId}`);
+      console.log(`Issued by: ${result.issuedBy}`);
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('orchestr-vote')
+  .description('Trigger a voting round in orchestrator')
+  .option('--session <id>', 'Session ID')
+  .option('--issued-by <name>', 'Issuer name', 'human')
+  .action(async (options) => {
+    try {
+      if (!options.session) {
+        console.error('Error: --session is required');
+        process.exit(1);
+      }
+
+      const client = new ApiClient(process.env.API_URL);
+      const result = await client.issueOrchestratorCommand(
+        options.session,
+        'vote',
+        options.issuedBy
+      );
+
+      console.log('✅ Orchestrator vote command sent!');
+      console.log(`Command ID: ${result.commandId}`);
+      console.log(`Issued by: ${result.issuedBy}`);
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+program
   .command('analyze')
   .description('Run automated multi-agent analysis on a session')
   .option('--session <id>', 'Session ID to analyze')

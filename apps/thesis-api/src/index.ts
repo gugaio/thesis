@@ -8,6 +8,7 @@ import { agentRoutes } from './routes/agents.js';
 import { opinionRoutes } from './routes/opinions.js';
 import { messageRoutes } from './routes/messages.js';
 import { voteRoutes } from './routes/votes.js';
+import { orchestratorRoutes } from './routes/orchestrator.js';
 import { createWebSocketHandler } from './websocket/websocket.handler.js';
 import { SessionRepository } from './repositories/session.repository.js';
 import { DocumentRepository } from './repositories/document.repository.js';
@@ -42,6 +43,7 @@ fastify.register(documentRoutes);
 fastify.register(opinionRoutes);
 fastify.register(messageRoutes);
 fastify.register(voteRoutes);
+fastify.register(orchestratorRoutes);
 
 fastify.register(async function (fastify) {
   const pool = getPool();

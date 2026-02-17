@@ -25,6 +25,8 @@ interface AgentTask {
   pi_provider: string;
   pi_model: string;
   iteration_timeout_ms: number;
+  forced_vote?: boolean;
+  human_instructions?: string[];
 }
 
 interface AgentResult {
